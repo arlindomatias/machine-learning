@@ -1,10 +1,13 @@
 # ============================================================
-# SCRIPT 08: somatic copy-number segments (Affymetrix SNP 6.0, germline CNVs removed).
-# Segment_Mean is log2(copy number / 2).
+# SCRIPT 08 (optional module `copy_number`, TCGA Firehose data only): somatic copy-number segments
+# (Affymetrix SNP 6.0, germline CNVs removed). Segment_Mean is log2(copy number / 2).
+# Config modules.copy_number: file (under $DATA/<input.dir>/), gain_loss_threshold, example_sample.
 # ============================================================
 source(file.path(snakemake@scriptdir, "00_common.R"))
+source(file.path(snakemake@scriptdir, "inputs", "tcga.R"))
 
-thr <- cfg$copy_number$gain_loss_threshold
+ccfg <- cfg$modules$copy_number
+thr <- ccfg$gain_loss_threshold
 cnv <- fread(inp$copy_number)
 message("Segments x columns: ", paste(dim(cnv), collapse = " x "))
 print(summary(cnv$Segment_Mean))
@@ -19,11 +22,12 @@ per_sample <- cnv[, .(
   frac_genome_lost = sum(length[Segment_Mean < -thr]) / sum(length)
 ), by = .(sample_id = Sample)]
 per_sample[, frac_genome_altered := frac_genome_gained + frac_genome_lost]
-per_sample <- merge(sample_metadata(per_sample$sample_id), per_sample, by = "sample_id")
+per_sample <- merge(tcga_sample_metadata(per_sample$sample_id, cfg$classes), per_sample, by = "sample_id")
+per_sample[, class := factor(class, levels = CLASS_LEVELS)]
 write_tsv(per_sample, out$per_sample)
 
-message("\nExample sample ", cfg$copy_number$example_sample, ":")
-print(per_sample[sample_id == cfg$copy_number$example_sample])
+message("\nExample sample ", ccfg$example_sample, ":")
+print(per_sample[sample_id == ccfg$example_sample])
 print(per_sample[, .(n = .N, median_fga = median(frac_genome_altered)), by = .(type_code, class)])
 
 # <figure name="fraction_genome_altered">

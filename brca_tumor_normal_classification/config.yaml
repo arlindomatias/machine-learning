@@ -6,16 +6,35 @@
 dataset: TCGA-BRCA
 title: "Breast invasive carcinoma: tumor vs. normal tissue"
 
-# Raw Broad GDAC Firehose files (stddata), under $DATA/<input.dir>/ (never in the repository).
+# Markdown for the report's data section.
+description: >
+  TCGA BRCA level-3 data from the Broad GDAC Firehose: RSEM-normalized RNA-seq gene expression and
+  somatic copy-number segments from Affymetrix SNP 6.0 arrays. The class comes from the sample-type code
+  of the TCGA barcode: codes below 10 are **Tumor** (01 primary, 06 metastatic), codes 10 and above are
+  **Normal** (11 solid tissue normal). A group is a TCGA participant (patient), so a patient's tumor and
+  normal samples always stay together.
+
+# Names used in the report and plots: the grouping unit (samples.csv `group`) and a feature.
+group_name: patient
+feature_name: gene
+
+# Extra samples.csv columns to break the sample counts down by in the report.
+report:
+  sample_columns: [type_code]
+
+# Raw input under $DATA/<input.dir>/ (never in the repository), read by
+# ../scripts/classification/inputs/<format>.R. See ../scripts/classification/README.md.
 input:
   dir: TCGA-BRCA
+  format: firehose_rsem     # firehose_rsem | matrix
+  transform: log2p1         # log2p1 | none
   expression: BRCA.rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes_normalized__data.data.txt
-  copy_number: BRCA.snp__genome_wide_snp_6__broad_mit_edu__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.seg
 
-# Class from the TCGA barcode sample-type code: < 10 tumor, >= 10 normal.
+# The firehose_rsem adapter assigns the class from the TCGA sample-type code: < 10 positive, >= 10 negative.
 classes:
   negative: Normal
   positive: Tumor
+  map: {}                   # optional raw label -> class (e.g. "normal breast tissue": Normal)
   colors:
     Normal: "#1f77b4"
     Tumor: "#d62728"
@@ -24,7 +43,8 @@ classes:
 feature_selection:
   n_top: 100
 
-# Patient-level train/test split, stratified by whether the patient has a normal sample.
+# Group-level train/test split, stratified by whether the group has a negative-class sample
+# (ignored if samples.csv has a `set` column).
 # Feature selection and standardization for the models are fit on the training set only.
 split:
   test_fraction: 0.3
@@ -93,23 +113,26 @@ models:
 # Model evaluation on the test set (04_classification.R per model, 05_compare_models.R across models).
 evaluation:
   ci_level: 0.95
-  bootstrap: 2000           # resamples of test-set patients, shared by all models (paired)
+  bootstrap: 2000           # resamples of test-set groups, shared by all models (paired)
   log_loss_eps: 0.001       # probabilities are clipped to [eps, 1 - eps] for the log loss
   calibration_bins: 10      # equal-width bins of the predicted probability
 
-# Unsupervised clustering of the top genes. One output set per method (kmeans | pam).
-clustering:
-  methods: [kmeans, pam]
-  k: 2
-  nstart: 20
-
-# Reactome over-representation of the top genes; universe = every gene on the platform.
-enrichment:
-  padj_cutoff: 0.05
-  show_category: 30
-
-copy_number:
-  gain_loss_threshold: 0.2      # |log2 ratio| above this counts as gained / lost
-  example_sample: TCGA-A8-A06R-01A-11D-A011-01
+# Optional steps. Disabled modules are left out of the workflow and the report.
+modules:
+  clustering:               # unsupervised clustering of the top full-cohort features
+    enabled: true
+    methods: [kmeans, pam]
+    k: 2
+    nstart: 20
+  enrichment:               # Reactome over-representation of the top features (needs Entrez ids)
+    enabled: true
+    organism: human
+    padj_cutoff: 0.05
+    show_category: 30
+  copy_number:              # TCGA Firehose segments only
+    enabled: true
+    file: BRCA.snp__genome_wide_snp_6__broad_mit_edu__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.seg
+    gain_loss_threshold: 0.2      # |log2 ratio| above this counts as gained / lost
+    example_sample: TCGA-A8-A06R-01A-11D-A011-01
 
 seed: 33

@@ -40,37 +40,60 @@ save_plot <- function(path, plot, ...) {
 
 write_tsv <- function(x, path) fwrite(x, path, sep = "\t")
 
-# --- Sample metadata ------------------------------------------------------------
+# --- Input contract ---------------------------------------------------------------
+# The prepare step (01_prepare.R + inputs/<format>.R) is the only dataset-specific step. It writes
+#   data/expression.rds  numeric matrix, samples x features, on the analysis scale (e.g. log2)
+#   data/samples.csv     sample_id, group, class [, set] [, any other columns]
+#   data/features.csv    feature_id, symbol, entrez (NA if unknown)
+# and every later step reads only these files. See README.md in this folder.
 
-# TCGA barcode: TCGA-<TSS>-<participant>-<sample type><vial>-...
-# Sample-type codes 01-09 are tumors (01 primary, 06 metastatic), 10-19 normals
-# (10 blood, 11 solid tissue normal).
-sample_metadata <- function(barcodes) {
-  parts <- tstrsplit(barcodes, "-", fixed = TRUE)
-  type_code <- as.integer(substr(parts[[4]], 1, 2))
-  data.table(
-    sample_id = barcodes,
-    group = paste(parts[[1]], parts[[2]], parts[[3]], sep = "-"),
-    type_code = type_code,
-    class = factor(ifelse(type_code < 10, cfg$classes$positive, cfg$classes$negative),
-                   levels = CLASS_LEVELS)
-  )
+# Stops with a message listing every violation of the contract.
+validate_inputs <- function(X, samples, features) {
+  problems <- character()
+  check <- function(ok, msg) if (!isTRUE(ok)) problems <<- c(problems, msg)
+  check(length(CLASS_LEVELS) == 2 && !anyDuplicated(CLASS_LEVELS),
+        "config classes must define two different classes (negative, positive)")
+  check(is.matrix(X) && is.numeric(X), "expression must be a numeric matrix")
+  check(all(is.finite(X)), "expression contains NA, NaN or Inf")
+  check(!anyDuplicated(rownames(X)) && !anyDuplicated(colnames(X)), "duplicated sample or feature ids")
+  check(all(c("sample_id", "group", "class") %in% names(samples)), "samples needs sample_id, group, class")
+  check(identical(rownames(X), as.character(samples$sample_id)), "matrix rows != samples$sample_id (same order)")
+  check(!anyNA(samples$group) && all(samples$group != ""), "samples$group has missing values")
+  check(all(as.character(samples$class) %in% CLASS_LEVELS),
+        paste("samples$class must be one of:", paste(CLASS_LEVELS, collapse = ", ")))
+  check(all(CLASS_LEVELS %in% as.character(samples$class)), "both classes must be present")
+  if ("set" %in% names(samples)) {
+    check(all(samples$set %in% c("train", "test")), "samples$set must be train or test")
+    check(samples[, uniqueN(set), by = group][, all(V1 == 1)], "a group has samples in both train and test")
+  }
+  check(all(c("feature_id", "symbol", "entrez") %in% names(features)), "features needs feature_id, symbol, entrez")
+  check(identical(colnames(X), as.character(features$feature_id)), "matrix columns != features$feature_id (same order)")
+  check(!anyNA(features$symbol), "features$symbol has missing values")
+  if (length(problems)) stop("Input contract violated:\n  - ", paste(problems, collapse = "\n  - "))
+  invisible(TRUE)
 }
 
+read_expression <- function(path) readRDS(path)
+
 read_samples <- function(path) {
-  s <- fread(path)
+  s <- fread(path, colClasses = list(character = c("sample_id", "group")))
   s[, class := factor(class, levels = CLASS_LEVELS)]
   s
 }
 
-# "FHL1|2273" -> symbol "FHL1", entrez "2273". Unannotated genes ("?|100130426") get the
-# Entrez ID as their symbol.
-split_gene_ids <- function(ids) {
-  symbol <- sub("\\|.*$", "", ids)
-  entrez <- sub("^.*\\|", "", ids)
-  symbol[symbol == "?"] <- entrez[symbol == "?"]
-  data.table(feature_id = ids, symbol = symbol, entrez = entrez)
+read_features <- function(path) {
+  f <- fread(path, colClasses = list(character = c("feature_id", "symbol", "entrez")))
+  f[entrez == "", entrez := NA_character_]
+  f
 }
+
+# Adds symbol and entrez to a table with a feature_id column.
+annotate_features <- function(dt, features, ...) {
+  merge(dt, features[, .(feature_id, symbol, entrez)], by = "feature_id", ...)
+}
+
+# Name of the grouping unit in text and plots (e.g. "patient"); config `group_name`.
+GROUP_NAME <- cfg$group_name %||% "group"
 
 # --- Feature selection ----------------------------------------------------------
 

@@ -27,11 +27,12 @@ message("Model: ", model_id, " (", mcfg$method, ")")
 pos <- cfg$classes$positive
 neg <- cfg$classes$negative
 
-X <- readRDS(inp$expression)
+X <- read_expression(inp$expression)
 split <- fread(inp$split)
 split[, class := factor(class, levels = CLASS_LEVELS)]
 stopifnot(identical(rownames(X), split$sample_id))
 ranking <- fread(inp$ranking)
+features <- read_features(inp$features)
 
 genes <- if (identical(mcfg$n_features, "all")) ranking$feature_id else head(ranking$feature_id, mcfg$n_features)
 train <- split$set == "train"
@@ -93,7 +94,7 @@ save_plot(out$confusion_plot, p, width = 5, height = 4.5)
 if (!is.null(out$genes)) {
   if (is.null(res$genes)) stop("Method ", mcfg$method, " returned no per-gene weights")
   gw <- as.data.table(res$genes)[weight != 0]
-  gw <- merge(gw, split_gene_ids(gw$feature_id), by = "feature_id")
+  gw <- annotate_features(gw, features)
   gw <- gw[order(-abs(weight))]
   gw[, `:=`(model = model_id, abs_rank = .I)]
   if (isTRUE(res$signed)) gw[, direction := paste("Favors", ifelse(weight > 0, pos, neg))]

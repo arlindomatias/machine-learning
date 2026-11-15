@@ -16,6 +16,13 @@ from html_report import Report  # noqa: E402
 inp, out, prm, cfg = snakemake.input, snakemake.output, snakemake.params, snakemake.config  # noqa: F821
 NEG, POS = cfg["classes"]["negative"], cfg["classes"]["positive"]
 P = "plots"
+GROUP = cfg.get("group_name", "group")
+FEAT = cfg.get("feature_name", "feature")
+MODULES = cfg.get("modules", {})
+
+
+def enabled(module):
+    return MODULES.get(module, {}).get("enabled", False)
 
 
 def read_tsv(path, **kw):
@@ -32,7 +39,7 @@ def by_stem(paths, suffix):
 
 def describe_model(mcfg):
     n = mcfg["n_features"]
-    feats = "all genes" if n == "all" else f"top {n} training-set BSS/WSS genes"
+    feats = f"all {FEAT}s" if n == "all" else f"top {n} training-set BSS/WSS {FEAT}s"
     method = mcfg["method"]
     if method == "knn":
         return f"k-nearest neighbours, k = {mcfg['k']}, {feats} (z-scored with training statistics)"
@@ -43,7 +50,7 @@ def describe_model(mcfg):
         a = mcfg["alpha"]
         kind = "LASSO" if a == 1 else ("ridge" if a == 0 else f"elastic net (alpha = {a})")
         bal = ", class-weighted" if mcfg.get("balanced") else ""
-        return (f"{kind} logistic regression{bal}, penalty tuned by patient-grouped CV "
+        return (f"{kind} logistic regression{bal}, penalty tuned by {GROUP}-grouped CV "
                 f"({mcfg.get('s', 'lambda.1se')}), {feats}")
     if method == "svm":
         kernel = mcfg.get("kernel", "linear")
@@ -51,7 +58,7 @@ def describe_model(mcfg):
         return f"SVM, {kernel} kernel, cost = {mcfg.get('cost', 1)}{bal}, {feats}"
     if method == "pamr":
         bal = "class-balanced " if mcfg.get("balanced", True) else ""
-        return f"{bal}nearest shrunken centroids, threshold tuned by patient-grouped CV, {feats}"
+        return f"{bal}nearest shrunken centroids, threshold tuned by {GROUP}-grouped CV, {feats}"
     if method == "xgboost":
         return (f"gradient-boosted trees, {mcfg.get('nrounds', 200)} rounds, depth {mcfg.get('max_depth', 3)}, "
                 f"eta {mcfg.get('eta', 0.1)}, {feats}")
@@ -67,8 +74,9 @@ comparison = read_tsv(inp.comparison)
 boot = read_tsv(inp.bootstrap)
 pairwise = read_tsv(inp.pairwise)
 errors = read_tsv(inp.errors)
-reactome = read_tsv(inp.reactome)
-cn = read_tsv(inp.copy_number)
+features = pd.read_csv(inp.features)
+reactome = read_tsv(inp.reactome) if enabled("enrichment") else pd.DataFrame()
+cn = read_tsv(inp.copy_number) if enabled("copy_number") else pd.DataFrame()
 confusion = by_stem(inp.confusion, "_confusion_matrix.tsv")
 gene_tables = by_stem(inp.genes, "_genes.tsv")
 contingency = by_stem(inp.contingency, "_contingency.tsv")
@@ -79,63 +87,73 @@ best = comparison.sort_values(["balanced_accuracy", "auc"], ascending=False).ilo
 n_top = cfg["feature_selection"]["n_top"]
 
 r = Report(prm.title, subtitle=prm.subtitle, code_files=list(inp.code))
-r.kpis([
-    (f"{len(samples):,}", "RNA-seq samples"),
+kpis = [
+    (f"{len(samples):,}", "samples"),
     (f"{n_class.get(POS, 0):,} / {n_class.get(NEG, 0):,}", f"{POS} / {NEG}"),
     (len(models), "models compared"),
     (f"{best['balanced_accuracy']:.3f}", f"best balanced accuracy ({best['model']})"),
-    (f"{len(reactome):,}", f"Reactome pathways (padj < {cfg['enrichment']['padj_cutoff']})"),
-])
+]
+if enabled("enrichment"):
+    kpis.append((f"{len(reactome):,}", f"Reactome pathways (padj < {MODULES['enrichment']['padj_cutoff']})"))
+r.kpis(kpis)
 
 # ---- Data -----------------------------------------------------------------------------
 r.h2("Data and design")
-types = samples.groupby(["type_code", "class"]).size().reset_index(name="samples")
+icfg = cfg["input"]
+big, small = (POS, NEG) if n_class.get(POS, 0) >= n_class.get(NEG, 0) else (NEG, POS)
+ratio = n_class.get(big, 0) / max(n_class.get(small, 1), 1)
+r.md(cfg.get("description", ""))
 r.md(f"""
-TCGA {cfg['dataset']} level-3 data from the Broad GDAC Firehose: RSEM-normalized RNA-seq gene expression
-(analysed as `log2(RSEM + 1)`, {len(samples):,} samples) and somatic copy-number segments from Affymetrix
-SNP 6.0 arrays. The class comes from the sample-type code of the TCGA sample_id: codes below 10 are
-**{POS}** (01 primary, 06 metastatic), codes 10 and above are **{NEG}** (11 solid tissue normal).
-
-The classes are imbalanced (about {n_class.get(POS, 0) / max(n_class.get(NEG, 1), 1):.0f} tumors per normal),
-so models are compared on sensitivity, specificity, balanced accuracy and AUC, not accuracy alone.
+**Input**: format `{icfg['format']}`, transform `{icfg.get('transform', 'none')}`; {len(samples):,} samples ×
+{len(features):,} {FEAT}s after the prepare step, in {samples['group'].nunique():,} {GROUP}s.
+The classes are {"imbalanced" if ratio >= 1.5 else "roughly balanced"} (about {ratio:.1f} {big} per {small}),
+so models are compared on sensitivity, specificity, balanced accuracy, MCC and AUC, not accuracy alone.
 """)
-r.table(types, "RNA-seq samples by TCGA sample-type code.")
-r.md("""
-**Pipeline**
-
-1. **prepare**: parses the expression table into a samples × genes matrix.
-2. **split**: patient-level, stratified train/test split; genes ranked by BSS/WSS on the training set only.
-3. **feature_selection**: descriptive BSS/WSS ranking on the full cohort and heatmap.
-4. **classify / classify_with_genes**: one job per model in `config.yaml`, with the method's code in `models/<method>.R`; outputs are named after the model id. Methods with per-gene weights also write a gene table.
-5. **compare_models**: metrics with patient bootstrap intervals, pairwise McNemar and DeLong tests, ROC and calibration curves, and misclassified samples.
-6. **clustering**: one job per method (k-means, PAM) on the top full-cohort genes.
-7. **enrichment**: Reactome over-representation of the top genes.
-8. **copy_number**: per-sample copy-number alteration burden.
-""")
+by = [c for c in cfg.get("report", {}).get("sample_columns", []) if c in samples.columns] + ["class"]
+r.table(samples.groupby(by).size().reset_index(name="samples"), f"Samples by {', '.join(by)}.")
+steps = [
+    f"**prepare**: reads the raw input with `inputs/{icfg['format']}.R` and writes the expression matrix, sample table and {FEAT} table.",
+    f"**split**: {GROUP}-level, stratified train/test split; {FEAT}s ranked by BSS/WSS on the training set only.",
+    "**feature_selection**: descriptive BSS/WSS ranking on the full cohort and heatmap.",
+    f"**classify / classify_with_genes**: one job per model in `config.yaml`, with the method's code in `models/<method>.R`; outputs are named after the model id. Methods with per-{FEAT} weights also write a {FEAT} table.",
+    f"**compare_models**: metrics with {GROUP} bootstrap intervals, pairwise McNemar and DeLong tests, ROC and calibration curves, and misclassified samples.",
+]
+if enabled("clustering"):
+    steps.append(f"**clustering**: one job per method ({', '.join(MODULES['clustering']['methods'])}) on the top full-cohort {FEAT}s.")
+if enabled("enrichment"):
+    steps.append(f"**enrichment**: Reactome over-representation of the top {FEAT}s.")
+if enabled("copy_number"):
+    steps.append("**copy_number**: per-sample copy-number alteration burden.")
+r.md("**Pipeline**\n\n" + "\n".join(f"{i}. {t}" for i, t in enumerate(steps, 1)))
 
 # ---- Feature selection ------------------------------------------------------------------
 r.h2("Feature selection")
 up = int((top["log2_fold_change"] > 0).sum()) if len(top) else 0
 r.md(f"""
-Genes are ranked by the ratio of between-group to within-group sum of squares (BSS/WSS; Dudoit et al.,
-2002). Of the top {n_top} genes on the full cohort, **{up}** are higher and **{n_top - up}** lower in
+{FEAT.capitalize()}s are ranked by the ratio of between-group to within-group sum of squares (BSS/WSS; Dudoit et al.,
+2002). Of the top {n_top} {FEAT}s on the full cohort, **{up}** are higher and **{n_top - up}** lower in
 {POS} samples. This ranking is descriptive (heatmap, clustering, enrichment); the classifiers use a
 ranking computed on the training set only.
 """)
 r.figure(f"{P}/feature_selection/heatmap_top_genes.png",
-         f"Top {n_top} genes, all {NEG} samples plus an equal number of random {POS} samples "
+         f"Top {n_top} {FEAT}s, every {small} sample plus an equal number of random {big} samples "
          "(row z-scores clipped to ±3).")
 cols = ["rank", "symbol", "bss_wss", "log2_fold_change"]
-r.table(top[cols], f"Top {n_top} genes on the full cohort (positive log2FC = higher in {POS}).",
+r.table(top[cols], f"Top {n_top} {FEAT}s on the full cohort (positive log2FC = higher in {POS}).",
         max_rows=25, collapsed=True)
 
 # ---- Classification -----------------------------------------------------------------------
 r.h2("Classification")
 sets = split.groupby(["set", "class"]).size().unstack(fill_value=0).reset_index()
+if "set" in samples.columns:
+    split_text = "The train/test split was predefined in the sample table."
+else:
+    split_text = (f"{GROUP.capitalize()}s were split {1 - cfg['split']['test_fraction']:.0%}/"
+                  f"{cfg['split']['test_fraction']:.0%} into training and test sets, stratified by whether they "
+                  f"contain a {NEG} sample.")
 r.md(f"""
-Patients were split {1 - cfg['split']['test_fraction']:.0%}/{cfg['split']['test_fraction']:.0%} into
-training and test sets, stratified by whether they contributed a normal sample, so a patient's tumor and
-normal never fall on different sides. Gene selection and standardization were fit on the training set.
+{split_text} All samples of a {GROUP} fall on the same side. {FEAT.capitalize()} selection and standardization
+were fit on the training set.
 """)
 r.table(sets, "Samples per set.")
 r.table(pd.DataFrame([{"model": m, "description": describe_model(c)} for m, c in models.items()]),
@@ -159,8 +177,8 @@ All metrics are on the test set, with **{POS}** as the positive class.
 - **ROC AUC**: ranking quality of the scores. **PR AUC ({NEG})** is the area under the precision-recall curve with {NEG}, the rare class, as the class of interest (chance level = its share of the test set, {(split.query("set == 'test'")["class"] == NEG).mean():.3f}).
 - **Brier score / log loss**: quality of the probabilities themselves (lower is better). Log loss clips probabilities to [{ev['log_loss_eps']}, {1 - ev['log_loss_eps']}].
 
-Intervals are {level} percentile intervals from {ev['bootstrap']:,} bootstrap resamples of test-set **patients** (a patient's
-tumor and normal stay together). Every model is evaluated on the same resamples. Sensitivity and specificity also have
+Intervals are {level} percentile intervals from {ev['bootstrap']:,} bootstrap resamples of test-set **{GROUP}s** (all samples of a
+{GROUP} stay together). Every model is evaluated on the same resamples. Sensitivity and specificity also have
 Wilson intervals in `model_comparison.tsv`.
 """)
 cols = ["model", "n_features", "sensitivity", "specificity", "balanced_accuracy", "ppv", "npv", "mcc",
@@ -169,9 +187,9 @@ r.table(comparison[cols], f"Test-set performance ({POS} is the positive class)."
 ci_metrics = {"balanced_accuracy": "balanced accuracy", "mcc": "MCC", "auc": "ROC AUC",
               "npv": "NPV", "brier": "Brier score"}
 r.table(pd.DataFrame([{"model": m, **{label: with_ci(m, k) for k, label in ci_metrics.items()}} for m in models]),
-        f"Point estimate [{level} patient bootstrap interval].")
+        f"Point estimate [{level} {GROUP} bootstrap interval].")
 r.figure(f"{P}/classification/model_comparison.png",
-         f"Test-set metrics per model with {level} patient bootstrap intervals.")
+         f"Test-set metrics per model with {level} {GROUP} bootstrap intervals.")
 r.figure(f"{P}/classification/roc_curves.png",
          "ROC curves on the test set (kNN scores are neighbour vote shares; k = 1 gives a single point).")
 
@@ -229,75 +247,80 @@ AUC **{row['auc']:.3f}**, Brier score **{row['brier']:.4f}**;
              width="420px", code=[f"method_{mcfg['method']}", "confusion_matrix"])
     if m in gene_tables:
         gt = read_tsv(gene_tables[m])
-        r.md(f"**{len(gt)}** gene(s) with a non-zero weight.")
-        r.figure(f"{P}/classification/{m}_genes.png", f"Top genes of `{m}` by absolute weight.",
+        r.md(f"**{len(gt)}** {FEAT}(s) with a non-zero weight.")
+        r.figure(f"{P}/classification/{m}_genes.png", f"Top {FEAT}s of `{m}` by absolute weight.",
                  width="520px", code=["genes"])
         cols = [c for c in ["symbol", "weight", "direction"] if c in gt.columns]
-        r.table(gt[cols], f"Per-gene weights of `{m}`.", max_rows=20, collapsed=True, digits=4)
+        r.table(gt[cols], f"Per-{FEAT} weights of `{m}`.", max_rows=20, collapsed=True, digits=4)
 
 # ---- Clustering -----------------------------------------------------------------------------
-r.h2("Clustering")
-r.md(f"""
-Unsupervised clustering with k = {cfg['clustering']['k']} on the z-scored top {n_top} full-cohort genes.
-Agreement is the share of samples whose cluster matches their class under the best one-to-one mapping
-of clusters to classes.
-""")
-for method in cfg["clustering"]["methods"]:
-    ct = read_tsv(contingency[method])
-    wide = ct.pivot(index="cluster", columns="class", values="N").fillna(0).astype(int)
-    agree = None
-    if wide.shape == (2, 2):
-        d = wide.values
-        agree = max(d[0, 0] + d[1, 1], d[0, 1] + d[1, 0]) / d.sum()
-    r.h3(method)
-    if agree is not None:
-        r.md(f"Agreement with the {POS}/{NEG} labels: **{agree:.1%}**.")
-    r.table(wide, f"`{method}` clusters vs. class.", index=True)
-    r.figure(f"{P}/clustering/{method}_clusplot.png",
-             f"`{method}` clusters on the first two principal components, points colored by true class.",
-             width="620px", code=["clusplot"])
+if enabled("clustering"):
+    r.h2("Clustering")
+    r.md(f"""
+    Unsupervised clustering with k = {MODULES['clustering']['k']} on the z-scored top {n_top} full-cohort {FEAT}s.
+    Agreement is the share of samples whose cluster matches their class under the best one-to-one mapping
+    of clusters to classes.
+    """)
+    for method in MODULES["clustering"]["methods"]:
+        ct = read_tsv(contingency[method])
+        wide = ct.pivot(index="cluster", columns="class", values="N").fillna(0).astype(int)
+        agree = None
+        if wide.shape == (2, 2):
+            d = wide.values
+            agree = max(d[0, 0] + d[1, 1], d[0, 1] + d[1, 0]) / d.sum()
+        r.h3(method)
+        if agree is not None:
+            r.md(f"Agreement with the {POS}/{NEG} labels: **{agree:.1%}**.")
+        r.table(wide, f"`{method}` clusters vs. class.", index=True)
+        r.figure(f"{P}/clustering/{method}_clusplot.png",
+                 f"`{method}` clusters on the first two principal components, points colored by true class.",
+                 width="620px", code=["clusplot"])
 
 # ---- Enrichment --------------------------------------------------------------------------------
-r.h2("Reactome enrichment")
-r.md(f"""
-Over-representation of the top {n_top} genes in Reactome pathways (ReactomePA), with every gene on the
-platform as the universe and Benjamini–Hochberg adjustment. **{len(reactome)}** pathways have
-adjusted p < {cfg['enrichment']['padj_cutoff']}.
-""")
-r.figure(f"{P}/enrichment/reactome_dotplot.png", "Top enriched Reactome pathways.")
-r.figure(f"{P}/enrichment/reactome_emapplot.png", "Enrichment map: pathways linked by shared genes.")
-if len(reactome):
-    r.table(reactome[["Description", "GeneRatio", "BgRatio", "p.adjust", "geneID"]],
-            "Enriched Reactome pathways.", max_rows=30, collapsed=True)
+if enabled("enrichment"):
+    r.h2("Reactome enrichment")
+    r.md(f"""
+    Over-representation of the top {n_top} {FEAT}s in Reactome pathways (ReactomePA), with every measured {FEAT} with an Entrez id as the
+    universe and Benjamini–Hochberg adjustment. **{len(reactome)}** pathways have
+    adjusted p < {MODULES['enrichment']['padj_cutoff']}.
+    """)
+    r.figure(f"{P}/enrichment/reactome_dotplot.png", "Top enriched Reactome pathways.")
+    r.figure(f"{P}/enrichment/reactome_emapplot.png", "Enrichment map: pathways linked by shared genes.")
+    if len(reactome):
+        r.table(reactome[["Description", "GeneRatio", "BgRatio", "p.adjust", "geneID"]],
+                "Enriched Reactome pathways.", max_rows=30, collapsed=True)
 
 # ---- Copy number ---------------------------------------------------------------------------------
-r.h2("Copy number")
-thr = cfg["copy_number"]["gain_loss_threshold"]
-fga = cn.groupby("class")["frac_genome_altered"].agg(["count", "median"]).reset_index()
-fga.columns = ["class", "samples", "median fraction of genome altered"]
-r.md(f"""
-Somatic copy-number segments ({len(cn):,} samples, germline CNVs removed). The fraction of genome altered
-is the share of the segmented genome with |log2 ratio| > {thr}. In the copy-number data, normals are mostly
-matched blood samples (code 10).
-""")
-r.table(fga, "Copy-number alteration burden by class.")
-r.figure(f"{P}/copy_number/fraction_genome_altered.png", "Fraction of genome altered by tissue type.")
+if enabled("copy_number"):
+    r.h2("Copy number")
+    thr = MODULES["copy_number"]["gain_loss_threshold"]
+    fga = cn.groupby("class")["frac_genome_altered"].agg(["count", "median"]).reset_index()
+    fga.columns = ["class", "samples", "median fraction of genome altered"]
+    r.md(f"""
+    Somatic copy-number segments ({len(cn):,} samples, germline CNVs removed). The fraction of genome altered
+    is the share of the segmented genome with |log2 ratio| > {thr}. In the copy-number data, normals are mostly
+    matched blood samples (code 10).
+    """)
+    r.table(fga, "Copy-number alteration burden by class.")
+    r.figure(f"{P}/copy_number/fraction_genome_altered.png", "Fraction of genome altered by tissue type.")
 
 # ---- Appendix --------------------------------------------------------------------------------------
 outputs = [
-    ("data/samples.csv", "Sample table (sample_id, group, sample-type code, class)"),
+    ("data/samples.csv", "Sample table (sample_id, group, class and extra columns)"),
+    ("data/features.csv", f"{FEAT.capitalize()} table (feature_id, symbol, entrez)"),
     ("data/train_test_split.csv", "Train/test assignment of every sample"),
-    ("results/feature_selection/top_genes_full_cohort.tsv", "Top genes on the full cohort"),
-    ("results/classification/bss_wss_ranking_train.tsv", "Gene ranking on the training set"),
+    ("results/feature_selection/top_genes_full_cohort.tsv", f"Top {FEAT}s on the full cohort"),
+    ("results/classification/bss_wss_ranking_train.tsv", f"{FEAT.capitalize()} ranking on the training set"),
     ("results/classification/<model>_{predictions,metrics,confusion_matrix}.tsv", "Per-model test-set outputs"),
-    ("results/classification/<model>_genes.tsv", "Per-gene weights (methods that have them)"),
+    ("results/classification/<model>_genes.tsv", f"Per-{FEAT} weights (methods that have them)"),
     ("results/classification/model_comparison.tsv", "Metrics of every model (with Wilson intervals)"),
-    ("results/classification/bootstrap_ci.tsv", "Patient bootstrap intervals of every metric"),
+    ("results/classification/bootstrap_ci.tsv", f"{GROUP.capitalize()} bootstrap intervals of every metric"),
     ("results/classification/pairwise_tests.tsv", "McNemar and DeLong tests for every pair of models"),
     ("results/classification/misclassified_samples.tsv", "Test samples misclassified by at least one model"),
-    ("results/clustering/<method>_{assignments,contingency}.tsv", "Per-method clustering outputs"),
-    ("results/enrichment/reactome.tsv", "Reactome enrichment"),
-    ("results/copy_number/per_sample.tsv", "Per-sample copy-number summary"),
+    *([("results/clustering/<method>_{assignments,contingency}.tsv", "Per-method clustering outputs")]
+      if enabled("clustering") else []),
+    *([("results/enrichment/reactome.tsv", "Reactome enrichment")] if enabled("enrichment") else []),
+    *([("results/copy_number/per_sample.tsv", "Per-sample copy-number summary")] if enabled("copy_number") else []),
     ("data/models/<model>.rds", "Fitted model objects (not versioned)"),
 ]
 r.appendix(outputs, env_files=list(inp.envs), config_files=list(inp.config), session_file=inp.session)

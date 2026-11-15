@@ -1,7 +1,7 @@
 # ============================================================
 # SCRIPT 05: comparison of every model in config.yaml on the shared test set.
 #   - metrics table (from the per-model metrics files)
-#   - bootstrap confidence intervals: test-set patients are resampled with replacement and the same
+#   - bootstrap confidence intervals: test-set groups (e.g. patients) are resampled with replacement and the same
 #     resamples are used for every model (paired)
 #   - pairwise tests: exact McNemar on the errors, DeLong on the AUCs; Holm-adjusted across pairs
 #   - calibration: observed share of positives per bin of predicted probability
@@ -114,7 +114,7 @@ p <- ggplot(d, aes(estimate, model)) +
   geom_errorbar(aes(xmin = lower, xmax = upper), width = 0.3, orientation = "y", color = "grey45") +
   geom_point(color = "#08519c", size = 1.8) +
   facet_wrap(~metric, ncol = 4, scales = "free_x") +
-  labs(x = sprintf("Test-set value (%.0f%% patient bootstrap interval)", 100 * ev$ci_level), y = NULL,
+  labs(x = sprintf("Test-set value (%.0f%% %s bootstrap interval)", 100 * ev$ci_level, GROUP_NAME), y = NULL,
        title = "Model comparison") +
   theme(strip.text = element_text(size = 9))
 save_plot(out$comparison_plot, p, width = 11, height = 6)

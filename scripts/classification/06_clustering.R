@@ -6,10 +6,10 @@ source(file.path(snakemake@scriptdir, "00_common.R"))
 suppressPackageStartupMessages(library(cluster))
 
 method <- snakemake@wildcards$method
-ccfg <- cfg$clustering
+ccfg <- cfg$modules$clustering
 samples <- read_samples(inp$samples)
 top <- fread(inp$top_genes)
-X <- scale(readRDS(inp$expression)[, top$feature_id])
+X <- scale(read_expression(inp$expression)[, top$feature_id])
 
 set.seed(SEED)
 cl <- switch(method,
