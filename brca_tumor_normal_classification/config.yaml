@@ -1,0 +1,75 @@
+# ============================================================
+# Dataset configuration for the shared scripts in ../scripts/classification/.
+# Everything specific to this dataset or analysis lives here, not in the scripts.
+# ============================================================
+
+dataset: TCGA-BRCA
+title: "Breast invasive carcinoma: tumor vs. normal tissue"
+
+# Raw Broad GDAC Firehose files (stddata), under $DATA/<input.dir>/ (never in the repository).
+input:
+  dir: TCGA-BRCA
+  expression: BRCA.rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes_normalized__data.data.txt
+  copy_number: BRCA.snp__genome_wide_snp_6__broad_mit_edu__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.seg
+
+# Class from the TCGA barcode sample-type code: < 10 tumor, >= 10 normal.
+classes:
+  negative: Normal
+  positive: Tumor
+  colors:
+    Normal: "#1f77b4"
+    Tumor: "#d62728"
+
+# Descriptive ranking on the full cohort (heatmap, clustering, enrichment).
+feature_selection:
+  n_top: 100
+
+# Patient-level train/test split, stratified by whether the patient has a normal sample.
+# Feature selection and standardization for the models are fit on the training set only.
+split:
+  test_fraction: 0.3
+
+# One entry per model. The key is the model id used in every file name
+# (results/classification/<id>_*.tsv, plots/classification/<id>_*.png, data/models/<id>.rds).
+#   method: knn | random_forest
+#   n_features: number of top training-set BSS/WSS genes, or "all"
+models:
+  knn_k1:
+    method: knn
+    k: 1
+    n_features: 100
+  knn_k5:
+    method: knn
+    k: 5
+    n_features: 100
+  knn_k1_all_genes:
+    method: knn
+    k: 1
+    n_features: all
+  rf:
+    method: random_forest
+    ntree: 500
+    balanced: false
+    n_features: 100
+  rf_balanced:          # each tree is grown on as many tumors as normals
+    method: random_forest
+    ntree: 500
+    balanced: true
+    n_features: 100
+
+# Unsupervised clustering of the top genes. One output set per method (kmeans | pam).
+clustering:
+  methods: [kmeans, pam]
+  k: 2
+  nstart: 20
+
+# Reactome over-representation of the top genes; universe = every gene on the platform.
+enrichment:
+  padj_cutoff: 0.05
+  show_category: 30
+
+copy_number:
+  gain_loss_threshold: 0.2      # |log2 ratio| above this counts as gained / lost
+  example_sample: TCGA-A8-A06R-01A-11D-A011-01
+
+seed: 33

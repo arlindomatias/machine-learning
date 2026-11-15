@@ -1,0 +1,5 @@
+model	actual	predicted	N
+rf_balanced	Normal	Normal	34
+rf_balanced	Normal	Tumor	0
+rf_balanced	Tumor	Normal	4
+rf_balanced	Tumor	Tumor	325

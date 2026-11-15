@@ -1,0 +1,5 @@
+model	actual	predicted	N
+knn_k1	Normal	Normal	34
+knn_k1	Normal	Tumor	0
+knn_k1	Tumor	Normal	1
+knn_k1	Tumor	Tumor	328

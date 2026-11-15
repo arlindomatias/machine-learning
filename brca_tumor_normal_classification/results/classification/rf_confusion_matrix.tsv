@@ -1,0 +1,5 @@
+model	actual	predicted	N
+rf	Normal	Normal	33
+rf	Normal	Tumor	1
+rf	Tumor	Normal	2
+rf	Tumor	Tumor	327

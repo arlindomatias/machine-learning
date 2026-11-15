@@ -1,0 +1,5 @@
+model	actual	predicted	N
+knn_k1_all_genes	Normal	Normal	34
+knn_k1_all_genes	Normal	Tumor	0
+knn_k1_all_genes	Tumor	Normal	4
+knn_k1_all_genes	Tumor	Tumor	325

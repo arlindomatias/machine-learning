@@ -1,0 +1,5 @@
+method	cluster	class	N
+kmeans	1	Normal	111
+kmeans	2	Normal	1
+kmeans	1	Tumor	49
+kmeans	2	Tumor	1051

@@ -1,0 +1,22 @@
+name: ml
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  # R
+  - r-base=4.5.3
+
+  # CRAN
+  - r-data.table
+  - r-ggplot2
+  - r-randomforest
+  - r-class
+  - r-cluster
+
+  # Bioconductor
+  - bioconductor-reactomepa
+  - bioconductor-reactome.db
+  - bioconductor-org.hs.eg.db
+  - bioconductor-enrichplot

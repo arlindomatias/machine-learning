@@ -1,0 +1,5 @@
+method	cluster	class	N
+pam	1	Normal	1
+pam	2	Normal	111
+pam	1	Tumor	1063
+pam	2	Tumor	37

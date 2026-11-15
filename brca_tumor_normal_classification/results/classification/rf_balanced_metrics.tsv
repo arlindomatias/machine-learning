@@ -1,0 +1,2 @@
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
+rf_balanced	random_forest	100	849	363	0.988980716253444	0.987841945288754	1	0.993920972644377	0.998748435544431
