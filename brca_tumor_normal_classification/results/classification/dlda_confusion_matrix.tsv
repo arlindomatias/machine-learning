@@ -1,0 +1,5 @@
+model	actual	predicted	N
+dlda	Normal	Normal	34
+dlda	Normal	Tumor	0
+dlda	Tumor	Normal	9
+dlda	Tumor	Tumor	320

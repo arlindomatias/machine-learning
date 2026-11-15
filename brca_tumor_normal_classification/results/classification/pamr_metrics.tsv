@@ -1,0 +1,2 @@
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
+pamr	pamr	20228	849	363	0.986225895316804	0.984802431610942	1	0.992401215805471	0.999195422849991

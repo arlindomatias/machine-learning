@@ -1,0 +1,2 @@
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
+lasso	glmnet	20228	849	363	0.994490358126722	0.996960486322189	0.970588235294118	0.983774360808153	0.999195422849991

@@ -1,0 +1,2 @@
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
+dlda	dlda	100	849	363	0.975206611570248	0.972644376899696	1	0.986322188449848	0.998837833005543

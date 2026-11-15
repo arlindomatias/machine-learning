@@ -31,8 +31,9 @@ split:
 
 # One entry per model. The key is the model id used in every file name
 # (results/classification/<id>_*.tsv, plots/classification/<id>_*.png, data/models/<id>.rds).
-#   method: knn | random_forest
+#   method: knn | random_forest | glmnet | svm | pamr | xgboost | dlda
 #   n_features: number of top training-set BSS/WSS genes, or "all"
+# The options of each method are documented at the top of ../scripts/classification/models/<method>.R.
 models:
   knn_k1:
     method: knn
@@ -55,6 +56,38 @@ models:
     method: random_forest
     ntree: 500
     balanced: true
+    n_features: 100
+  lasso:                # penalty tuned by patient-grouped CV; selects its own genes
+    method: glmnet
+    alpha: 1
+    n_features: all
+  elastic_net:
+    method: glmnet
+    alpha: 0.5
+    n_features: all
+  svm_linear:
+    method: svm
+    kernel: linear
+    cost: 1
+    n_features: 100
+  svm_radial:
+    method: svm
+    kernel: radial
+    cost: 1
+    n_features: 100
+  pamr:                 # shrinkage threshold tuned by patient-grouped CV
+    method: pamr
+    balanced: true      # replicate normals to the number of tumors (see models/pamr.R)
+    n_features: all
+  xgboost:
+    method: xgboost
+    nrounds: 200
+    eta: 0.1
+    max_depth: 3
+    n_features: 100
+  dlda:
+    method: dlda
+    prior: balanced
     n_features: 100
 
 # Unsupervised clustering of the top genes. One output set per method (kmeans | pam).

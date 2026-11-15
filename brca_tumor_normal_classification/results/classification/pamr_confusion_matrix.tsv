@@ -1,0 +1,5 @@
+model	actual	predicted	N
+pamr	Normal	Normal	34
+pamr	Normal	Tumor	0
+pamr	Tumor	Normal	5
+pamr	Tumor	Tumor	324

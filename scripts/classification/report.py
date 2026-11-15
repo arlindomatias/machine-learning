@@ -50,8 +50,8 @@ def describe_model(mcfg):
         bal = ", class-weighted" if mcfg.get("balanced", True) else ""
         return f"SVM, {kernel} kernel, cost = {mcfg.get('cost', 1)}{bal}, {feats}"
     if method == "pamr":
-        return (f"nearest shrunken centroids, {mcfg.get('prior', 'balanced')} prior, threshold tuned by "
-                f"patient-grouped CV, {feats}")
+        bal = "class-balanced " if mcfg.get("balanced", True) else ""
+        return f"{bal}nearest shrunken centroids, threshold tuned by patient-grouped CV, {feats}"
     if method == "xgboost":
         return (f"gradient-boosted trees, {mcfg.get('nrounds', 200)} rounds, depth {mcfg.get('max_depth', 3)}, "
                 f"eta {mcfg.get('eta', 0.1)}, {feats}")

@@ -92,3 +92,19 @@ bss_wss <- function(X, y) {
   res[, rank := .I]
   res
 }
+
+# --- Cross-validation folds -----------------------------------------------------------
+
+# Fold id per sample for internal cross-validation (e.g. tuning a penalty): whole patients go to
+# one fold, and patients with a negative-class sample are spread evenly across folds.
+patient_folds <- function(patients, y, k) {
+  pt <- data.table(patient = patients, neg = y == cfg$classes$negative)[, .(neg = any(neg)), by = patient]
+  pt[, fold := sample(rep_len(seq_len(k), .N)), by = neg]
+  pt$fold[match(patients, pt$patient)]
+}
+
+# Observation weights giving both classes the same total weight.
+balanced_weights <- function(y) {
+  n <- table(y)
+  as.numeric(length(y) / (length(n) * n[as.character(y)]))
+}

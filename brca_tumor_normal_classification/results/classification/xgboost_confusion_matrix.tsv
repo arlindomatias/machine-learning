@@ -1,0 +1,5 @@
+model	actual	predicted	N
+xgboost	Normal	Normal	34
+xgboost	Normal	Tumor	0
+xgboost	Tumor	Normal	3
+xgboost	Tumor	Tumor	326

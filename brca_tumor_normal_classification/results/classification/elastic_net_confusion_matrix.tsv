@@ -1,0 +1,5 @@
+model	actual	predicted	N
+elastic_net	Normal	Normal	33
+elastic_net	Normal	Tumor	1
+elastic_net	Tumor	Normal	1
+elastic_net	Tumor	Tumor	328

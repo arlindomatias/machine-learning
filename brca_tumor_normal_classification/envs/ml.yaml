@@ -12,6 +12,10 @@ dependencies:
   - r-data.table
   - r-ggplot2
   - r-randomforest
+  - r-glmnet
+  - r-e1071
+  - r-pamr
+  - r-xgboost=*=cpu*        # CPU build (the default may pull CUDA)
   - r-class
   - r-cluster
 

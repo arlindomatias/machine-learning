@@ -1,0 +1,2 @@
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
+xgboost	xgboost	100	849	363	0.991735537190083	0.990881458966565	1	0.995440729483283	0.998748435544431

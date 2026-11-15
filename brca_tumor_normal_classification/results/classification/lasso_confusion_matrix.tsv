@@ -1,0 +1,5 @@
+model	actual	predicted	N
+lasso	Normal	Normal	33
+lasso	Normal	Tumor	1
+lasso	Tumor	Normal	1
+lasso	Tumor	Tumor	328

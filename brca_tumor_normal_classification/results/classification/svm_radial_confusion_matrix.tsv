@@ -1,0 +1,5 @@
+model	actual	predicted	N
+svm_radial	Normal	Normal	34
+svm_radial	Normal	Tumor	0
+svm_radial	Tumor	Normal	1
+svm_radial	Tumor	Tumor	328

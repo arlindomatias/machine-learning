@@ -1,0 +1,5 @@
+model	actual	predicted	N
+svm_linear	Normal	Normal	34
+svm_linear	Normal	Tumor	0
+svm_linear	Tumor	Normal	1
+svm_linear	Tumor	Tumor	328

@@ -3,7 +3,7 @@ Platform: x86_64-conda-linux-gnu
 Running under: Ubuntu 26.04.1 LTS
 
 Matrix products: default
-BLAS/LAPACK: /home/arlindo/github/machine-learning/brca_tumor_normal_classification/.snakemake/conda/9adfe3738d8e2d1c3f097cf653865a08_/lib/libopenblasp-r0.3.34.so;  LAPACK version 3.12.0
+BLAS/LAPACK: /home/arlindo/github/machine-learning/brca_tumor_normal_classification/.snakemake/conda/282c9a6a1f3bedc256866a83f7daf819_/lib/libopenblasp-r0.3.34.so;  LAPACK version 3.12.0
 
 locale:
  [1] LC_CTYPE=pt_BR.UTF-8       LC_NUMERIC=C              

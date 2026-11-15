@@ -1,0 +1,2 @@
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
+svm_linear	svm	100	849	363	0.997245179063361	0.996960486322189	1	0.998480243161094	0.999910602538888
