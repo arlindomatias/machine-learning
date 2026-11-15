@@ -2,8 +2,21 @@
 # SCRIPT 04: train and evaluate ONE model (Snakemake wildcard `model`).
 # The model id is a key of `models:` in config.yaml and prefixes every output file, so each
 # model keeps its own predictions, metrics, confusion matrix, figures and fitted object.
-#   method knn:           class::knn on genes standardized with training-set statistics
-#   method random_forest: randomForest, optionally class-balanced (strata + sampsize)
+#
+# Method-specific code lives in models/<method>.R (Snakemake input `method`). Each of those files
+# defines
+#   fit_model(X_train, y_train, X_test, mcfg, classes, groups)
+# where X_* are samples x genes matrices, y_train is a factor with levels CLASS_LEVELS, mcfg is the
+# model's config entry, classes = cfg$classes and groups holds the training samples' patient ids
+# (for internal cross-validation folds that never split a patient). It returns a list with
+#   fit           fitted object, saved to data/models/<id>.rds
+#   pred          predicted class of each test sample
+#   prob_pos      score of each test sample for the positive class (higher = more positive)
+#   genes         optional data.table(gene_id, weight, ...) of per-gene weights
+#   weight_label  axis label for the weight
+#   signed        TRUE if the sign of the weight gives the direction (positive = towards the
+#                 positive class)
+# Everything that must be identical across models (data, gene selection, metrics, figures) is here.
 # ============================================================
 source(file.path(snakemake@scriptdir, "00_common.R"))
 
@@ -29,34 +42,15 @@ y_test <- split$class[!train]
 rm(X)
 message("Features: ", length(genes), " | train: ", nrow(X_train), " | test: ", nrow(X_test))
 
+source(inp$method)
 set.seed(SEED)
-if (mcfg$method == "knn") {
-  suppressPackageStartupMessages(library(class))
-  mu <- colMeans(X_train)
-  sigma <- apply(X_train, 2, sd)
-  sigma[sigma == 0] <- 1
-  pred <- knn(scale(X_train, mu, sigma), scale(X_test, mu, sigma), y_train, k = mcfg$k, prob = TRUE)
-  vote <- attr(pred, "prob")                      # share of votes for the predicted class
-  prob_pos <- ifelse(pred == pos, vote, 1 - vote)
-  fit <- list(method = "knn", k = mcfg$k, genes = genes, center = mu, scale = sigma)
-} else if (mcfg$method == "random_forest") {
-  suppressPackageStartupMessages(library(randomForest))
-  args <- list(x = X_train, y = y_train, ntree = mcfg$ntree, importance = TRUE)
-  if (isTRUE(mcfg$balanced)) {
-    n_min <- min(table(y_train))
-    args <- c(args, list(strata = y_train, sampsize = c(n_min, n_min)))
-  }
-  fit <- do.call(randomForest, args)
-  print(fit)
-  pred <- predict(fit, X_test)
-  prob_pos <- predict(fit, X_test, type = "prob")[, pos]
-} else {
-  stop("Unknown method: ", mcfg$method)
-}
-saveRDS(fit, out$model)
+res <- fit_model(X_train, y_train, X_test, mcfg, cfg$classes, groups = split$patient[train])
+saveRDS(res$fit, out$model)
+pred <- factor(as.character(res$pred), levels = CLASS_LEVELS)
+prob_pos <- as.numeric(res$prob_pos)
+stopifnot(length(pred) == nrow(X_test), !anyNA(pred), length(prob_pos) == nrow(X_test))
 
 # --- Predictions and metrics -----------------------------------------------------
-pred <- factor(as.character(pred), levels = CLASS_LEVELS)
 predictions <- data.table(model = model_id, barcode = split$barcode[!train],
                           patient = split$patient[!train], actual = y_test,
                           predicted = pred, prob_positive = round(prob_pos, 4))
@@ -97,22 +91,31 @@ p <- ggplot(cm_dt, aes(actual, predicted, fill = share)) +
 save_plot(out$confusion_plot, p, width = 5, height = 4.5)
 # </figure>
 
-# --- Variable importance (random forest only) -----------------------------------------
-if (!is.null(out$importance)) {
-  imp <- importance(fit)
-  imp <- data.table(model = model_id, gene_id = rownames(imp),
-                    mean_decrease_accuracy = imp[, "MeanDecreaseAccuracy"],
-                    mean_decrease_gini = imp[, "MeanDecreaseGini"])
-  imp <- merge(imp, split_gene_ids(imp$gene_id), by = "gene_id")
-  setorder(imp, -mean_decrease_accuracy)
-  setcolorder(imp, c("model", "gene_id", "symbol", "entrez"))
-  write_tsv(imp, out$importance)
+# --- Per-gene weights (methods that have them) ----------------------------------------
+if (!is.null(out$genes)) {
+  if (is.null(res$genes)) stop("Method ", mcfg$method, " returned no per-gene weights")
+  gw <- as.data.table(res$genes)[weight != 0]
+  gw <- merge(gw, split_gene_ids(gw$gene_id), by = "gene_id")
+  gw <- gw[order(-abs(weight))]
+  gw[, `:=`(model = model_id, abs_rank = .I)]
+  if (isTRUE(res$signed)) gw[, direction := paste("Favors", ifelse(weight > 0, pos, neg))]
+  setcolorder(gw, intersect(c("model", "gene_id", "symbol", "entrez", "weight", "abs_rank", "direction"),
+                            names(gw)))
+  message("Genes with non-zero weight: ", nrow(gw))
+  write_tsv(gw, out$genes)
 
-  # <figure name="importance">
-  top20 <- head(imp, 20)
-  p <- ggplot(top20, aes(mean_decrease_accuracy, reorder(symbol, mean_decrease_accuracy))) +
-    geom_col(fill = "#4c72b0") +
-    labs(title = sprintf("%s: top 20 genes", model_id), x = "Mean decrease in accuracy", y = NULL)
-  save_plot(out$importance_plot, p, width = 5.5, height = 5)
+  # <figure name="genes">
+  top20 <- head(gw, 20)
+  p <- ggplot(top20, aes(weight, reorder(symbol, abs(weight)))) +
+    labs(title = sprintf("%s: top %d genes", model_id, nrow(top20)), x = res$weight_label, y = NULL)
+  p <- if (isTRUE(res$signed)) {
+    p + geom_col(aes(fill = direction)) + geom_vline(xintercept = 0, color = "grey40") +
+      scale_fill_manual(values = setNames(CLASS_COLORS[c(pos, neg)], paste("Favors", c(pos, neg))),
+                        name = NULL) +
+      theme(legend.position = "bottom")
+  } else {
+    p + geom_col(fill = "#4c72b0")
+  }
+  save_plot(out$genes_plot, p, width = 5.5, height = 5.5)
   # </figure>
 }

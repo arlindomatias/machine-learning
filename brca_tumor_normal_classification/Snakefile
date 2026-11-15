@@ -22,8 +22,17 @@ SCRIPTS = "../scripts/classification"
 RAW = os.path.join(os.environ["DATA"], config["input"]["dir"])
 
 MODELS = list(config["models"])
-KNN = [m for m in MODELS if config["models"][m]["method"] == "knn"]
-RF = [m for m in MODELS if config["models"][m]["method"] == "random_forest"]
+
+
+def has_gene_weights(mcfg):
+    """Methods whose fitted model gives one weight per gene (written to <model>_genes.tsv)."""
+    if mcfg["method"] == "svm":
+        return mcfg.get("kernel", "linear") == "linear"
+    return mcfg["method"] in {"random_forest", "glmnet", "pamr", "xgboost", "dlda"}
+
+
+GENE_MODELS = [m for m in MODELS if has_gene_weights(config["models"][m])]
+PLAIN_MODELS = [m for m in MODELS if m not in GENE_MODELS]
 CLUSTERING = config["clustering"]["methods"]
 
 
@@ -95,13 +104,18 @@ rule feature_selection:
 
 
 # ------------------------------------------------------------
-# 04: one job per model. kNN and random forest share the script; random forests also write
-# variable importance.
+# 04: one job per model. Every method runs the same script, which sources the method's file in
+# models/; methods with per-gene weights also write <model>_genes.{tsv,png}.
 # ------------------------------------------------------------
+def method_file(wildcards):
+    return f"{SCRIPTS}/models/{config['models'][wildcards.model]['method']}.R"
+
+
 CLASSIFY_INPUT = dict(
     expression=rules.prepare.output.expression,
     split=rules.split.output.split,
     ranking=rules.split.output.ranking,
+    method=method_file,
 )
 CLASSIFY_OUTPUT = dict(
     model="data/models/{model}.rds",
@@ -112,13 +126,13 @@ CLASSIFY_OUTPUT = dict(
 )
 
 
-rule classify_knn:
+rule classify:
     input:
         **CLASSIFY_INPUT,
     output:
         **CLASSIFY_OUTPUT,
     wildcard_constraints:
-        model=one_of(KNN),
+        model=one_of(PLAIN_MODELS),
     conda:
         ENV
     log:
@@ -127,15 +141,15 @@ rule classify_knn:
         f"{SCRIPTS}/04_classification.R"
 
 
-rule classify_random_forest:
+rule classify_with_genes:
     input:
         **CLASSIFY_INPUT,
     output:
         **CLASSIFY_OUTPUT,
-        importance="results/classification/{model}_importance.tsv",
-        importance_plot="plots/classification/{model}_importance.png",
+        genes="results/classification/{model}_genes.tsv",
+        genes_plot="plots/classification/{model}_genes.png",
     wildcard_constraints:
-        model=one_of(RF),
+        model=one_of(GENE_MODELS),
     conda:
         ENV
     log:
@@ -242,14 +256,14 @@ rule report:
         top_genes=rules.feature_selection.output.top_genes,
         comparison=rules.compare_models.output.comparison,
         confusion=expand("results/classification/{model}_confusion_matrix.tsv", model=MODELS),
-        importance=expand("results/classification/{model}_importance.tsv", model=RF),
+        genes=expand("results/classification/{model}_genes.tsv", model=GENE_MODELS),
         contingency=expand("results/clustering/{method}_contingency.tsv", method=CLUSTERING),
         reactome=rules.enrichment.output.table,
         copy_number=rules.copy_number.output.per_sample,
         plots=[
             rules.feature_selection.output.heatmap,
             *expand("plots/classification/{model}_confusion_matrix.png", model=MODELS),
-            *expand("plots/classification/{model}_importance.png", model=RF),
+            *expand("plots/classification/{model}_genes.png", model=GENE_MODELS),
             rules.compare_models.output.comparison_plot,
             rules.compare_models.output.roc_plot,
             *expand("plots/clustering/{method}_clusplot.png", method=CLUSTERING),
@@ -264,6 +278,7 @@ rule report:
         code=[
             f"{SCRIPTS}/03_feature_selection.R",
             f"{SCRIPTS}/04_classification.R",
+            *sorted({f"{SCRIPTS}/models/{m['method']}.R" for m in config["models"].values()}),
             f"{SCRIPTS}/05_compare_models.R",
             f"{SCRIPTS}/06_clustering.R",
             f"{SCRIPTS}/07_enrichment.R",

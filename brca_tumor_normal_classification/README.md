@@ -41,12 +41,22 @@ Add an entry under `models:` in `config.yaml`:
 ```yaml
 models:
   knn_k3:
-    method: knn            # knn | random_forest
+    method: knn            # knn | random_forest | glmnet | svm | pamr | xgboost | dlda
     k: 3
     n_features: 100        # top training-set BSS/WSS genes, or "all"
 ```
 
 Snakemake then runs only the new model and rebuilds the comparison and the report. Existing models are left untouched.
+The options of each method are documented at the top of its file in
+[`../scripts/classification/models/`](../scripts/classification/models).
+
+### Adding a method
+
+Each method is one file, `../scripts/classification/models/<method>.R`, that defines
+`fit_model(X_train, y_train, X_test, mcfg, classes, groups)`. It returns the fitted object, the test-set predictions and
+positive-class scores, and optionally per-gene weights. The contract is documented in `04_classification.R`, which does
+everything shared by all models (data, gene selection, metrics, figures). If the method has per-gene weights, add it to
+`has_gene_weights()` in the `Snakefile`. Add its package to `envs/ml.yaml` and regenerate the pin file.
 
 ## Pipeline
 
@@ -55,7 +65,7 @@ Snakemake then runs only the new model and rebuilds the comparison and the repor
 | `prepare` | `01_prepare.R` | `data/expression_log2.rds`, `data/samples.csv` |
 | `split` | `02_split.R` | `data/train_test_split.csv`, `results/classification/bss_wss_ranking_train.tsv` |
 | `feature_selection` | `03_feature_selection.R` | `results/feature_selection/top_genes_full_cohort.tsv`, `plots/feature_selection/heatmap_top_genes.png` |
-| `classify_knn`, `classify_random_forest` (one job per model) | `04_classification.R` | `results/classification/<model>_{predictions,metrics,confusion_matrix}.tsv`, `plots/classification/<model>_confusion_matrix.png`, `data/models/<model>.rds`; random forests also write `<model>_importance.{tsv,png}` |
+| `classify`, `classify_with_genes` (one job per model) | `04_classification.R` + `models/<method>.R` | `results/classification/<model>_{predictions,metrics,confusion_matrix}.tsv`, `plots/classification/<model>_confusion_matrix.png`, `data/models/<model>.rds`; methods with per-gene weights also write `<model>_genes.{tsv,png}` |
 | `compare_models` | `05_compare_models.R` | `results/classification/model_comparison.tsv`, `plots/classification/{model_comparison,roc_curves}.png` |
 | `clustering` (one job per method) | `06_clustering.R` | `results/clustering/<method>_{assignments,contingency}.tsv`, `plots/clustering/<method>_clusplot.png` |
 | `enrichment` | `07_enrichment.R` | `results/enrichment/reactome.tsv`, `plots/enrichment/reactome_{dotplot,emapplot}.png` |

@@ -33,10 +33,31 @@ def by_stem(paths, suffix):
 def describe_model(mcfg):
     n = mcfg["n_features"]
     feats = "all genes" if n == "all" else f"top {n} training-set BSS/WSS genes"
-    if mcfg["method"] == "knn":
+    method = mcfg["method"]
+    if method == "knn":
         return f"k-nearest neighbours, k = {mcfg['k']}, {feats} (z-scored with training statistics)"
-    bal = "class-balanced " if mcfg.get("balanced") else ""
-    return f"{bal}random forest, {mcfg['ntree']} trees, {feats}"
+    if method == "random_forest":
+        bal = "class-balanced " if mcfg.get("balanced") else ""
+        return f"{bal}random forest, {mcfg['ntree']} trees, {feats}"
+    if method == "glmnet":
+        a = mcfg["alpha"]
+        kind = "LASSO" if a == 1 else ("ridge" if a == 0 else f"elastic net (alpha = {a})")
+        bal = ", class-weighted" if mcfg.get("balanced") else ""
+        return (f"{kind} logistic regression{bal}, penalty tuned by patient-grouped CV "
+                f"({mcfg.get('s', 'lambda.1se')}), {feats}")
+    if method == "svm":
+        kernel = mcfg.get("kernel", "linear")
+        bal = ", class-weighted" if mcfg.get("balanced", True) else ""
+        return f"SVM, {kernel} kernel, cost = {mcfg.get('cost', 1)}{bal}, {feats}"
+    if method == "pamr":
+        return (f"nearest shrunken centroids, {mcfg.get('prior', 'balanced')} prior, threshold tuned by "
+                f"patient-grouped CV, {feats}")
+    if method == "xgboost":
+        return (f"gradient-boosted trees, {mcfg.get('nrounds', 200)} rounds, depth {mcfg.get('max_depth', 3)}, "
+                f"eta {mcfg.get('eta', 0.1)}, {feats}")
+    if method == "dlda":
+        return f"diagonal linear discriminant analysis, {mcfg.get('prior', 'balanced')} prior, {feats}"
+    return f"{method}, {feats}"
 
 
 samples = pd.read_csv(inp.samples)
@@ -46,7 +67,7 @@ comparison = read_tsv(inp.comparison)
 reactome = read_tsv(inp.reactome)
 cn = read_tsv(inp.copy_number)
 confusion = by_stem(inp.confusion, "_confusion_matrix.tsv")
-importance = by_stem(inp.importance, "_importance.tsv")
+gene_tables = by_stem(inp.genes, "_genes.tsv")
 contingency = by_stem(inp.contingency, "_contingency.tsv")
 models = cfg["models"]
 
@@ -82,7 +103,7 @@ r.md("""
 1. **prepare**: parses the expression table into a samples × genes matrix.
 2. **split**: patient-level, stratified train/test split; genes ranked by BSS/WSS on the training set only.
 3. **feature_selection**: descriptive BSS/WSS ranking on the full cohort and heatmap.
-4. **classify_knn / classify_random_forest**: one job per model in `config.yaml`; outputs are named after the model id.
+4. **classify / classify_with_genes**: one job per model in `config.yaml`, with the method's code in `models/<method>.R`; outputs are named after the model id. Methods with per-gene weights also write a gene table.
 5. **compare_models**: metrics table, bar chart and ROC curves of all models.
 6. **clustering**: one job per method (k-means, PAM) on the top full-cohort genes.
 7. **enrichment**: Reactome over-representation of the top genes.
@@ -133,13 +154,14 @@ for m, mcfg in models.items():
 {fn} {POS} sample(s) called {NEG} and {fp} {NEG} sample(s) called {POS}.
 """)
     r.figure(f"{P}/classification/{m}_confusion_matrix.png", f"Confusion matrix of `{m}` on the test set.",
-             width="420px", code=["confusion_matrix"])
-    if m in importance:
-        imp = read_tsv(importance[m])
-        r.figure(f"{P}/classification/{m}_importance.png",
-                 f"Top 20 genes of `{m}` by mean decrease in accuracy.", width="520px", code=["importance"])
-        r.table(imp[["symbol", "mean_decrease_accuracy", "mean_decrease_gini"]],
-                f"Variable importance of `{m}`.", max_rows=20, collapsed=True)
+             width="420px", code=[f"method_{mcfg['method']}", "confusion_matrix"])
+    if m in gene_tables:
+        gt = read_tsv(gene_tables[m])
+        r.md(f"**{len(gt)}** gene(s) with a non-zero weight.")
+        r.figure(f"{P}/classification/{m}_genes.png", f"Top genes of `{m}` by absolute weight.",
+                 width="520px", code=["genes"])
+        cols = [c for c in ["symbol", "weight", "direction"] if c in gt.columns]
+        r.table(gt[cols], f"Per-gene weights of `{m}`.", max_rows=20, collapsed=True, digits=4)
 
 # ---- Clustering -----------------------------------------------------------------------------
 r.h2("Clustering")
@@ -196,7 +218,7 @@ outputs = [
     ("results/feature_selection/top_genes_full_cohort.tsv", "Top genes on the full cohort"),
     ("results/classification/bss_wss_ranking_train.tsv", "Gene ranking on the training set"),
     ("results/classification/<model>_{predictions,metrics,confusion_matrix}.tsv", "Per-model test-set outputs"),
-    ("results/classification/<model>_importance.tsv", "Random-forest variable importance"),
+    ("results/classification/<model>_genes.tsv", "Per-gene weights (methods that have them)"),
     ("results/classification/model_comparison.tsv", "Metrics of every model"),
     ("results/clustering/<method>_{assignments,contingency}.tsv", "Per-method clustering outputs"),
     ("results/enrichment/reactome.tsv", "Reactome enrichment"),
