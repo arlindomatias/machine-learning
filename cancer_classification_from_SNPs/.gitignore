@@ -1,0 +1,3 @@
+# TCGA-BRCA data files (large, downloadable from Firehose/Broad)
+BRCA.rnaseqv2__*.txt
+BRCA.snp__*.seg
