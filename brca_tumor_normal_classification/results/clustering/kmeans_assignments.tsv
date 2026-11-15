@@ -1,4 +1,4 @@
-method	barcode	class	cluster
+method	sample_id	class	cluster
 kmeans	TCGA-3C-AAAU-01A-11R-A41B-07	Tumor	2
 kmeans	TCGA-3C-AALI-01A-11R-A41B-07	Tumor	2
 kmeans	TCGA-3C-AALJ-01A-31R-A41B-07	Tumor	2

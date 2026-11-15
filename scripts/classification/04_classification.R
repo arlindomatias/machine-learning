@@ -12,7 +12,7 @@
 #   fit           fitted object, saved to data/models/<id>.rds
 #   pred          predicted class of each test sample
 #   prob_pos      score of each test sample for the positive class (higher = more positive)
-#   genes         optional data.table(gene_id, weight, ...) of per-gene weights
+#   genes         optional data.table(feature_id, weight, ...) of per-gene weights
 #   weight_label  axis label for the weight
 #   signed        TRUE if the sign of the weight gives the direction (positive = towards the
 #                 positive class)
@@ -30,10 +30,10 @@ neg <- cfg$classes$negative
 X <- readRDS(inp$expression)
 split <- fread(inp$split)
 split[, class := factor(class, levels = CLASS_LEVELS)]
-stopifnot(identical(rownames(X), split$barcode))
+stopifnot(identical(rownames(X), split$sample_id))
 ranking <- fread(inp$ranking)
 
-genes <- if (identical(mcfg$n_features, "all")) ranking$gene_id else head(ranking$gene_id, mcfg$n_features)
+genes <- if (identical(mcfg$n_features, "all")) ranking$feature_id else head(ranking$feature_id, mcfg$n_features)
 train <- split$set == "train"
 X_train <- X[train, genes, drop = FALSE]
 X_test <- X[!train, genes, drop = FALSE]
@@ -44,15 +44,15 @@ message("Features: ", length(genes), " | train: ", nrow(X_train), " | test: ", n
 
 source(inp$method)
 set.seed(SEED)
-res <- fit_model(X_train, y_train, X_test, mcfg, cfg$classes, groups = split$patient[train])
+res <- fit_model(X_train, y_train, X_test, mcfg, cfg$classes, groups = split$group[train])
 saveRDS(res$fit, out$model)
 pred <- factor(as.character(res$pred), levels = CLASS_LEVELS)
 prob_pos <- as.numeric(res$prob_pos)
 stopifnot(length(pred) == nrow(X_test), !anyNA(pred), length(prob_pos) == nrow(X_test))
 
 # --- Predictions and metrics -----------------------------------------------------
-predictions <- data.table(model = model_id, barcode = split$barcode[!train],
-                          patient = split$patient[!train], actual = y_test,
+predictions <- data.table(model = model_id, sample_id = split$sample_id[!train],
+                          group = split$group[!train], actual = y_test,
                           predicted = pred, prob_positive = prob_pos)  # full precision: rounding creates ties that change AUC
 write_tsv(predictions, out$predictions)
 
@@ -93,11 +93,11 @@ save_plot(out$confusion_plot, p, width = 5, height = 4.5)
 if (!is.null(out$genes)) {
   if (is.null(res$genes)) stop("Method ", mcfg$method, " returned no per-gene weights")
   gw <- as.data.table(res$genes)[weight != 0]
-  gw <- merge(gw, split_gene_ids(gw$gene_id), by = "gene_id")
+  gw <- merge(gw, split_gene_ids(gw$feature_id), by = "feature_id")
   gw <- gw[order(-abs(weight))]
   gw[, `:=`(model = model_id, abs_rank = .I)]
   if (isTRUE(res$signed)) gw[, direction := paste("Favors", ifelse(weight > 0, pos, neg))]
-  setcolorder(gw, intersect(c("model", "gene_id", "symbol", "entrez", "weight", "abs_rank", "direction"),
+  setcolorder(gw, intersect(c("model", "feature_id", "symbol", "entrez", "weight", "abs_rank", "direction"),
                             names(gw)))
   message("Genes with non-zero weight: ", nrow(gw))
   write_tsv(gw, out$genes)

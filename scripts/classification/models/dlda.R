@@ -27,7 +27,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
     fit = list(method = "dlda", means = means, pooled_var = pooled_var, prior = prior),
     pred = lv[max.col(post, ties.method = "first")],
     prob_pos = post[, classes$positive],
-    genes = data.table(gene_id = rownames(means),
+    genes = data.table(feature_id = rownames(means),
                        weight = (means[, classes$positive] - means[, classes$negative]) / sqrt(pooled_var)),
     weight_label = "Standardized mean difference",
     signed = TRUE

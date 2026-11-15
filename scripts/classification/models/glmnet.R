@@ -13,7 +13,7 @@ suppressPackageStartupMessages(library(glmnet))
 fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
   s <- mcfg$s %||% "lambda.1se"
   w <- if (isTRUE(mcfg$balanced)) balanced_weights(y_train) else rep(1, length(y_train))
-  folds <- patient_folds(groups, y_train, mcfg$nfolds %||% 10)
+  folds <- group_folds(groups, y_train, mcfg$nfolds %||% 10)
   cv <- cv.glmnet(X_train, y_train, family = "binomial", alpha = mcfg$alpha, weights = w,
                   foldid = folds, type.measure = "deviance")
   print(cv)
@@ -27,7 +27,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
     fit = cv,
     pred = ifelse(prob_pos >= 0.5, classes$positive, classes$negative),
     prob_pos = prob_pos,
-    genes = data.table(gene_id = names(beta), weight = beta * sd_train[names(beta)], coefficient = beta),
+    genes = data.table(feature_id = names(beta), weight = beta * sd_train[names(beta)], coefficient = beta),
     weight_label = "Standardized coefficient",
     signed = TRUE
   )

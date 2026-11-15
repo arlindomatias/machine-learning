@@ -20,7 +20,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
     fit = fit,
     pred = predict(fit, X_test),
     prob_pos = predict(fit, X_test, type = "prob")[, classes$positive],
-    genes = data.table(gene_id = rownames(imp),
+    genes = data.table(feature_id = rownames(imp),
                        weight = imp[, "MeanDecreaseAccuracy"],
                        mean_decrease_gini = imp[, "MeanDecreaseGini"]),
     weight_label = "Mean decrease in accuracy",

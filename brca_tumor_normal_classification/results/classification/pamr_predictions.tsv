@@ -1,4 +1,4 @@
-model	barcode	patient	actual	predicted	prob_positive
+model	sample_id	group	actual	predicted	prob_positive
 pamr	TCGA-3C-AALI-01A-11R-A41B-07	TCGA-3C-AALI	Tumor	Tumor	0.911430803413893
 pamr	TCGA-3C-AALJ-01A-31R-A41B-07	TCGA-3C-AALJ	Tumor	Tumor	0.949157064437967
 pamr	TCGA-3C-AALK-01A-11R-A41B-07	TCGA-3C-AALK	Tumor	Tumor	0.922763624747259

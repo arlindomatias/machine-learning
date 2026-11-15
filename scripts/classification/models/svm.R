@@ -31,7 +31,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
     w <- drop(t(fit$coefs) %*% fit$SV)
     dv <- scale(X_train, fit$x.scale[[1]], fit$x.scale[[2]])[, names(w)] %*% w
     if (mean(dv[y_train == classes$positive]) < mean(dv[y_train == classes$negative])) w <- -w
-    res <- c(res, list(genes = data.table(gene_id = names(w), weight = w),
+    res <- c(res, list(genes = data.table(feature_id = names(w), weight = w),
                        weight_label = "Hyperplane weight (scaled genes)", signed = TRUE))
   }
   res

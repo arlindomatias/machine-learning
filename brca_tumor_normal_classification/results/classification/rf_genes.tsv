@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	mean_decrease_gini
+model	feature_id	symbol	entrez	weight	abs_rank	mean_decrease_gini
 rf	FIGF|2277	FIGF	2277	11.0399538278002	1	12.2656463198944
 rf	ADAMTS5|11096	ADAMTS5	11096	8.87204890735339	2	9.76600473667284
 rf	MMP11|4320	MMP11	4320	8.68312780913232	3	7.74874620513831

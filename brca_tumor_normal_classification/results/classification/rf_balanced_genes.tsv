@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	mean_decrease_gini
+model	feature_id	symbol	entrez	weight	abs_rank	mean_decrease_gini
 rf_balanced	SPRY2|10253	SPRY2	10253	8.55287784319551	1	8.02287649864998
 rf_balanced	TSLP|85480	TSLP	85480	6.96734240758169	2	4.56395689792455
 rf_balanced	MMP11|4320	MMP11	4320	6.94684634418951	3	4.55905629407493

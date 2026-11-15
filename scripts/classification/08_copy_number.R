@@ -17,13 +17,13 @@ per_sample <- cnv[, .(
   mean_segment = mean(Segment_Mean),
   frac_genome_gained = sum(length[Segment_Mean > thr]) / sum(length),
   frac_genome_lost = sum(length[Segment_Mean < -thr]) / sum(length)
-), by = .(barcode = Sample)]
+), by = .(sample_id = Sample)]
 per_sample[, frac_genome_altered := frac_genome_gained + frac_genome_lost]
-per_sample <- merge(sample_metadata(per_sample$barcode), per_sample, by = "barcode")
+per_sample <- merge(sample_metadata(per_sample$sample_id), per_sample, by = "sample_id")
 write_tsv(per_sample, out$per_sample)
 
 message("\nExample sample ", cfg$copy_number$example_sample, ":")
-print(per_sample[barcode == cfg$copy_number$example_sample])
+print(per_sample[sample_id == cfg$copy_number$example_sample])
 print(per_sample[, .(n = .N, median_fga = median(frac_genome_altered)), by = .(type_code, class)])
 
 # <figure name="fraction_genome_altered">

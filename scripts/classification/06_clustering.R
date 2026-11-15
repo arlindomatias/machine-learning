@@ -9,7 +9,7 @@ method <- snakemake@wildcards$method
 ccfg <- cfg$clustering
 samples <- read_samples(inp$samples)
 top <- fread(inp$top_genes)
-X <- scale(readRDS(inp$expression)[, top$gene_id])
+X <- scale(readRDS(inp$expression)[, top$feature_id])
 
 set.seed(SEED)
 cl <- switch(method,
@@ -18,7 +18,7 @@ cl <- switch(method,
   stop("Unknown clustering method: ", method)
 )
 
-write_tsv(data.table(method = method, barcode = samples$barcode, class = samples$class, cluster = cl),
+write_tsv(data.table(method = method, sample_id = samples$sample_id, class = samples$class, cluster = cl),
           out$assignments)
 tab <- table(cluster = cl, class = samples$class)
 print(tab)

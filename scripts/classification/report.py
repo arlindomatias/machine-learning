@@ -93,7 +93,7 @@ types = samples.groupby(["type_code", "class"]).size().reset_index(name="samples
 r.md(f"""
 TCGA {cfg['dataset']} level-3 data from the Broad GDAC Firehose: RSEM-normalized RNA-seq gene expression
 (analysed as `log2(RSEM + 1)`, {len(samples):,} samples) and somatic copy-number segments from Affymetrix
-SNP 6.0 arrays. The class comes from the sample-type code of the TCGA barcode: codes below 10 are
+SNP 6.0 arrays. The class comes from the sample-type code of the TCGA sample_id: codes below 10 are
 **{POS}** (01 primary, 06 metastatic), codes 10 and above are **{NEG}** (11 solid tissue normal).
 
 The classes are imbalanced (about {n_class.get(POS, 0) / max(n_class.get(NEG, 1), 1):.0f} tumors per normal),
@@ -207,7 +207,7 @@ if len(errors):
 Samples that every model gets wrong may have a questionable label or composition (for example a tumor sample
 with a high share of normal tissue) rather than reveal a weakness of any one model.
 """)
-    r.table(errors[["barcode", "actual", "n_models_wrong", "models_wrong", "mean_prob_positive"]],
+    r.table(errors[["sample_id", "actual", "n_models_wrong", "models_wrong", "mean_prob_positive"]],
             "Test samples misclassified by at least one model.", digits=3)
     r.figure(f"{P}/classification/misclassified_samples.png",
              "Predictions of every model for the misclassified samples (red = wrong).")
@@ -285,7 +285,7 @@ r.figure(f"{P}/copy_number/fraction_genome_altered.png", "Fraction of genome alt
 
 # ---- Appendix --------------------------------------------------------------------------------------
 outputs = [
-    ("data/samples.csv", "Sample table (barcode, patient, sample-type code, class)"),
+    ("data/samples.csv", "Sample table (sample_id, group, sample-type code, class)"),
     ("data/train_test_split.csv", "Train/test assignment of every sample"),
     ("results/feature_selection/top_genes_full_cohort.tsv", "Top genes on the full cohort"),
     ("results/classification/bss_wss_ranking_train.tsv", "Gene ranking on the training set"),

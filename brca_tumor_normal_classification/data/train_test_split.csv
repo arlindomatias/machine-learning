@@ -1,4 +1,4 @@
-barcode,patient,class,set
+sample_id,group,class,set
 TCGA-3C-AAAU-01A-11R-A41B-07,TCGA-3C-AAAU,Tumor,train
 TCGA-3C-AALI-01A-11R-A41B-07,TCGA-3C-AALI,Tumor,test
 TCGA-3C-AALJ-01A-31R-A41B-07,TCGA-3C-AALJ,Tumor,test

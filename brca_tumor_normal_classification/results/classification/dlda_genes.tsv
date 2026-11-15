@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	direction
+model	feature_id	symbol	entrez	weight	abs_rank	direction
 dlda	CPA1|1357	CPA1	1357	-3.53043924446816	1	Favors Normal
 dlda	NEK2|4751	NEK2	4751	3.50838727866903	2	Favors Tumor
 dlda	MYOC|4653	MYOC	4653	-3.47108013203247	3	Favors Normal

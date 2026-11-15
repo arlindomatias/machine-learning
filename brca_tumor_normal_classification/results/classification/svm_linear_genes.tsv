@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	direction
+model	feature_id	symbol	entrez	weight	abs_rank	direction
 svm_linear	COL10A1|1300	COL10A1	1300	0.303682760569131	1	Favors Tumor
 svm_linear	HSD17B6|8630	HSD17B6	8630	0.246037013536344	2	Favors Tumor
 svm_linear	CA4|762	CA4	762	-0.220809894978328	3	Favors Normal

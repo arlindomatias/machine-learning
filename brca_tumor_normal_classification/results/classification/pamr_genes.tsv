@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	direction
+model	feature_id	symbol	entrez	weight	abs_rank	direction
 pamr	COL10A1|1300	COL10A1	1300	9.09576858699518	1	Favors Tumor
 pamr	FIGF|2277	FIGF	2277	-9.02840896198421	2	Favors Normal
 pamr	MMP11|4320	MMP11	4320	8.05758306794052	3	Favors Tumor

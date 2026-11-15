@@ -28,7 +28,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
   data <- list(x = t(X_train[idx, , drop = FALSE]), y = y,
                geneid = colnames(X_train), genenames = colnames(X_train))
   fit <- pamr.train(data, prior = rep(1 / nlevels(y), nlevels(y)))
-  folds <- patient_folds(groups[idx], y, mcfg$nfolds %||% 10)
+  folds <- group_folds(groups[idx], y, mcfg$nfolds %||% 10)
   cv <- pamr.cv(fit, data, folds = split(seq_along(folds), folds))
   bal_err <- apply(cv$yhat, 2, function(p) mean(tapply(as.character(p) != as.character(y), y, mean)))
   threshold <- max(cv$threshold[bal_err == min(bal_err)])
@@ -46,7 +46,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
                threshold = threshold),
     pred = pamr.predict(fit, t(X_test), threshold, type = "class"),
     prob_pos = post[, classes$positive],
-    genes = data.table(gene_id = rownames(shrunk), weight = shrunk[, classes$positive]),
+    genes = data.table(feature_id = rownames(shrunk), weight = shrunk[, classes$positive]),
     weight_label = "Shrunken centroid difference",
     signed = TRUE
   )

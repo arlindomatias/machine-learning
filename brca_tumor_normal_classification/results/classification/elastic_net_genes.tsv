@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	direction	coefficient
+model	feature_id	symbol	entrez	weight	abs_rank	direction	coefficient
 elastic_net	COL10A1|1300	COL10A1	1300	0.270449894152635	1	Favors Tumor	0.0950907555688941
 elastic_net	BGN|633	BGN	633	0.204349442186022	2	Favors Tumor	0.162577798211937
 elastic_net	HSD17B6|8630	HSD17B6	8630	0.177876354036497	3	Favors Tumor	0.13058901236388

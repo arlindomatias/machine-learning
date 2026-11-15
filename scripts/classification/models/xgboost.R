@@ -25,7 +25,7 @@ fit_model <- function(X_train, y_train, X_test, mcfg, classes, groups) {
     fit = fit,
     pred = ifelse(prob_pos >= 0.5, classes$positive, classes$negative),
     prob_pos = prob_pos,
-    genes = imp[, .(gene_id = Feature, weight = Gain, cover = Cover, frequency = Frequency)],
+    genes = imp[, .(feature_id = Feature, weight = Gain, cover = Cover, frequency = Frequency)],
     weight_label = "Gain",
     signed = FALSE
   )

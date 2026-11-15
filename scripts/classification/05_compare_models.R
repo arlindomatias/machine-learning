@@ -23,13 +23,13 @@ write_tsv(metrics, out$comparison)
 
 predictions <- rbindlist(lapply(inp$predictions, fread))
 predictions[, model := factor(model, levels = model_order)]
-setorder(predictions, model, barcode)
+setorder(predictions, model, sample_id)
 # Wide views: one row per test sample, one column per model.
-samples <- unique(predictions[, .(barcode, patient, actual)])
-setorder(samples, barcode)
-prob <- dcast(predictions, barcode ~ model, value.var = "prob_positive")
-called <- dcast(predictions, barcode ~ model, value.var = "predicted")
-stopifnot(identical(prob$barcode, samples$barcode), identical(called$barcode, samples$barcode))
+samples <- unique(predictions[, .(sample_id, group, actual)])
+setorder(samples, sample_id)
+prob <- dcast(predictions, sample_id ~ model, value.var = "prob_positive")
+called <- dcast(predictions, sample_id ~ model, value.var = "predicted")
+stopifnot(identical(prob$sample_id, samples$sample_id), identical(called$sample_id, samples$sample_id))
 is_pos <- samples$actual == pos
 
 # The tests and intervals below recompute metrics from the prediction files; they must match 04's.
@@ -42,9 +42,9 @@ for (m in model_order) {
 
 # --- Bootstrap confidence intervals -------------------------------------------------------
 set.seed(SEED)
-rows_by_patient <- split(seq_len(nrow(samples)), samples$patient)
+rows_by_group <- split(seq_len(nrow(samples)), samples$group)
 boot <- rbindlist(lapply(seq_len(ev$bootstrap), function(b) {
-  idx <- unlist(rows_by_patient[sample(length(rows_by_patient), replace = TRUE)], use.names = FALSE)
+  idx <- unlist(rows_by_group[sample(length(rows_by_group), replace = TRUE)], use.names = FALSE)
   rbindlist(lapply(model_order, function(m) {
     cbind(data.table(model = m, b = b),
           classification_metrics(samples$actual[idx], called[[m]][idx], prob[[m]][idx], ev$log_loss_eps))
@@ -100,7 +100,7 @@ wrong <- as.matrix(called[, ..model_order]) != samples$actual
 errors <- cbind(samples, n_models_wrong = rowSums(wrong),
                 models_wrong = apply(wrong, 1, function(w) paste(model_order[w], collapse = ", ")),
                 mean_prob_positive = round(rowMeans(as.matrix(prob[, ..model_order])), 4))[n_models_wrong > 0]
-setorder(errors, -n_models_wrong, barcode)
+setorder(errors, -n_models_wrong, sample_id)
 write_tsv(errors, out$errors)
 
 # <figure name="model_comparison">
@@ -157,10 +157,10 @@ save_plot(out$calibration_plot, p, width = 9, height = 2.6 * ceiling(length(mode
 
 # <figure name="misclassified">
 if (nrow(errors) > 0) {
-  tiles <- predictions[barcode %in% errors$barcode]
+  tiles <- predictions[sample_id %in% errors$sample_id]
   tiles[, `:=`(correct = predicted == actual,
-               sample = factor(sprintf("%s (%s)", barcode, actual),
-                               levels = rev(errors[, sprintf("%s (%s)", barcode, actual)])),
+               sample = factor(sprintf("%s (%s)", sample_id, actual),
+                               levels = rev(errors[, sprintf("%s (%s)", sample_id, actual)])),
                model = factor(model, levels = model_order))]
   p <- ggplot(tiles, aes(model, sample, fill = correct)) +
     geom_tile(color = "white") +

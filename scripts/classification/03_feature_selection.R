@@ -11,15 +11,15 @@ neg <- cfg$classes$negative
 pos <- cfg$classes$positive
 
 ranking <- bss_wss(X, samples$class)
-top <- merge(ranking[seq_len(n_top)], split_gene_ids(ranking$gene_id[seq_len(n_top)]),
-             by = "gene_id", sort = FALSE)
-top[, mean_log2_negative := colMeans(X[samples$class == neg, gene_id])]
-top[, mean_log2_positive := colMeans(X[samples$class == pos, gene_id])]
+top <- merge(ranking[seq_len(n_top)], split_gene_ids(ranking$feature_id[seq_len(n_top)]),
+             by = "feature_id", sort = FALSE)
+top[, mean_log2_negative := colMeans(X[samples$class == neg, feature_id])]
+top[, mean_log2_positive := colMeans(X[samples$class == pos, feature_id])]
 top[, log2_fold_change := mean_log2_positive - mean_log2_negative]
 setnames(top, c("mean_log2_negative", "mean_log2_positive"),
          paste0("mean_log2_", tolower(c(neg, pos))))
 setorder(top, rank)
-setcolorder(top, c("rank", "gene_id", "symbol", "entrez"))
+setcolorder(top, c("rank", "feature_id", "symbol", "entrez"))
 write_tsv(top, out$top_genes)
 print(head(top[, .(rank, symbol, bss_wss, log2_fold_change)], 20))
 
@@ -29,7 +29,7 @@ set.seed(SEED)
 normals <- which(samples$class == neg)
 tumors <- sample(which(samples$class == pos), length(normals))
 idx <- c(normals, tumors)
-mat <- t(X[idx, top$gene_id])
+mat <- t(X[idx, top$feature_id])
 rownames(mat) <- top$symbol
 mat <- pmin(pmax(t(scale(t(mat))), -3), 3)
 png(out$heatmap, width = 2400, height = 3200, res = 300)

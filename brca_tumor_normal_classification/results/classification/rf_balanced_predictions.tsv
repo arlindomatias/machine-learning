@@ -1,4 +1,4 @@
-model	barcode	patient	actual	predicted	prob_positive
+model	sample_id	group	actual	predicted	prob_positive
 rf_balanced	TCGA-3C-AALI-01A-11R-A41B-07	TCGA-3C-AALI	Tumor	Tumor	0.99
 rf_balanced	TCGA-3C-AALJ-01A-31R-A41B-07	TCGA-3C-AALJ	Tumor	Tumor	1
 rf_balanced	TCGA-3C-AALK-01A-11R-A41B-07	TCGA-3C-AALK	Tumor	Tumor	1

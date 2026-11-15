@@ -1,4 +1,4 @@
-rank	gene_id	symbol	entrez	bss_wss
+rank	feature_id	symbol	entrez	bss_wss
 1	CPA1|1357	CPA1	1357	1.0423543048862
 2	NEK2|4751	NEK2	4751	1.02937338551863
 3	MYOC|4653	MYOC	4653	1.00759768184041

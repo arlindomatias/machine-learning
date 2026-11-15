@@ -49,8 +49,8 @@ sample_metadata <- function(barcodes) {
   parts <- tstrsplit(barcodes, "-", fixed = TRUE)
   type_code <- as.integer(substr(parts[[4]], 1, 2))
   data.table(
-    barcode = barcodes,
-    patient = paste(parts[[1]], parts[[2]], parts[[3]], sep = "-"),
+    sample_id = barcodes,
+    group = paste(parts[[1]], parts[[2]], parts[[3]], sep = "-"),
     type_code = type_code,
     class = factor(ifelse(type_code < 10, cfg$classes$positive, cfg$classes$negative),
                    levels = CLASS_LEVELS)
@@ -69,7 +69,7 @@ split_gene_ids <- function(ids) {
   symbol <- sub("\\|.*$", "", ids)
   entrez <- sub("^.*\\|", "", ids)
   symbol[symbol == "?"] <- entrez[symbol == "?"]
-  data.table(gene_id = ids, symbol = symbol, entrez = entrez)
+  data.table(feature_id = ids, symbol = symbol, entrez = entrez)
 }
 
 # --- Feature selection ----------------------------------------------------------
@@ -87,7 +87,7 @@ bss_wss <- function(X, y) {
     wss <- wss + colSums(sweep(Xk, 2, mk)^2)
   }
   ratio <- bss / wss
-  res <- data.table(gene_id = colnames(X), bss_wss = ratio)[is.finite(bss_wss)]
+  res <- data.table(feature_id = colnames(X), bss_wss = ratio)[is.finite(bss_wss)]
   setorder(res, -bss_wss)
   res[, rank := .I]
   res
@@ -95,12 +95,12 @@ bss_wss <- function(X, y) {
 
 # --- Cross-validation folds -----------------------------------------------------------
 
-# Fold id per sample for internal cross-validation (e.g. tuning a penalty): whole patients go to
-# one fold, and patients with a negative-class sample are spread evenly across folds.
-patient_folds <- function(patients, y, k) {
-  pt <- data.table(patient = patients, neg = y == cfg$classes$negative)[, .(neg = any(neg)), by = patient]
-  pt[, fold := sample(rep_len(seq_len(k), .N)), by = neg]
-  pt$fold[match(patients, pt$patient)]
+# Fold id per sample for internal cross-validation (e.g. tuning a penalty): whole groups (patients)
+# go to one fold, and groups with a negative-class sample are spread evenly across folds.
+group_folds <- function(groups, y, k) {
+  g <- data.table(group = groups, neg = y == cfg$classes$negative)[, .(neg = any(neg)), by = group]
+  g[, fold := sample(rep_len(seq_len(k), .N)), by = neg]
+  g$fold[match(groups, g$group)]
 }
 
 # Observation weights giving both classes the same total weight.

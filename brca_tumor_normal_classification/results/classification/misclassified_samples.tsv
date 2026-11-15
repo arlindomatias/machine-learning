@@ -1,4 +1,4 @@
-barcode	patient	actual	n_models_wrong	models_wrong	mean_prob_positive
+sample_id	group	actual	n_models_wrong	models_wrong	mean_prob_positive
 TCGA-AO-A1KO-01A-31R-A13Q-07	TCGA-AO-A1KO	Tumor	12	knn_k1, knn_k5, knn_k1_all_genes, rf, rf_balanced, lasso, elastic_net, svm_linear, svm_radial, pamr, xgboost, dlda	0.056
 TCGA-A2-A0ES-01A-11R-A115-07	TCGA-A2-A0ES	Tumor	5	knn_k5, knn_k1_all_genes, rf_balanced, xgboost, dlda	0.4895
 TCGA-BH-A28O-01A-11R-A22K-07	TCGA-BH-A28O	Tumor	5	rf, rf_balanced, pamr, xgboost, dlda	0.6607

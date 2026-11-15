@@ -1,4 +1,4 @@
-barcode	patient	type_code	class	n_segments	n_positive	n_negative	mean_segment	frac_genome_gained	frac_genome_lost	frac_genome_altered
+sample_id	group	type_code	class	n_segments	n_positive	n_negative	mean_segment	frac_genome_gained	frac_genome_lost	frac_genome_altered
 TCGA-3C-AAAU-01A-11D-A41E-01	TCGA-3C-AAAU	1	Tumor	313	207	106	0.358954632587859	0.426984799813921	0.351702311995728	0.77868711180965
 TCGA-3C-AAAU-10A-01D-A41E-01	TCGA-3C-AAAU	10	Normal	67	32	35	-0.352637313432836	3.6888195478077e-05	1.5481054901216e-05	5.2369250379293e-05
 TCGA-3C-AALI-01A-11D-A41E-01	TCGA-3C-AALI	1	Tumor	298	169	129	0.047058389261745	0.351941252396934	0.364435564832363	0.716376817229297

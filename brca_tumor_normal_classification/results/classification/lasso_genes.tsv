@@ -1,4 +1,4 @@
-model	gene_id	symbol	entrez	weight	abs_rank	direction	coefficient
+model	feature_id	symbol	entrez	weight	abs_rank	direction	coefficient
 lasso	COL10A1|1300	COL10A1	1300	0.710978679913975	1	Favors Tumor	0.249981609636863
 lasso	BGN|633	BGN	633	0.439548645073305	2	Favors Tumor	0.349699270810861
 lasso	B3GALT1|8708	B3GALT1	8708	-0.326384792479713	3	Favors Normal	-0.229945370465152
