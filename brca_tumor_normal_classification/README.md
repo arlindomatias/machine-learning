@@ -11,7 +11,7 @@ shared scripts in [`../scripts/classification/`](../scripts/classification):
 - **Enrichment.** Reactome over-representation of the top genes.
 - **Copy number.** Somatic copy-number alteration burden.
 
-**Report:** `reports/report.html`. It covers every step, has one section per model, and shows the plot code.
+**Report:** [arlindomatias.github.io/machine-learning/brca_tumor_normal_classification/reports/report.html](https://arlindomatias.github.io/machine-learning/brca_tumor_normal_classification/reports/report.html). It covers every step, has one section per model, and shows the plot code.
 
 ## Data
 

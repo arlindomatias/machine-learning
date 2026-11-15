@@ -4,7 +4,7 @@ Snakemake + R workflows applying machine learning to public cancer genomics data
 
 | Project | Dataset | Role |
 |---|---|---|
-| [`brca_tumor_normal_classification/`](brca_tumor_normal_classification) | TCGA-BRCA | Tumor vs. normal classification from RNA-seq (kNN, random forest), clustering, Reactome enrichment, copy number |
+| [`brca_tumor_normal_classification/`](brca_tumor_normal_classification) | TCGA-BRCA | Tumor vs. normal classification from RNA-seq (kNN, random forest), clustering, Reactome enrichment, copy number ([report](https://arlindomatias.github.io/machine-learning/brca_tumor_normal_classification/reports/report.html)) |
 
 ## Layout
 
@@ -24,6 +24,8 @@ Projects follow the same layout as the `bulk-rna-seq` repository:
   `$DATA=/mnt/sda2/HD/Datasets`. Snakefiles read the path from the environment.
 - Dataset-specific values (inputs, classes, models, cutoffs, seed) go in each project's `config.yaml`.
 - Every rule has a `log:`.
+- Reports are versioned and published with GitHub Pages (branch `main`, root, `.nojekyll`):
+  `https://arlindomatias.github.io/machine-learning/<project>/reports/report.html`.
 - Plot code is wrapped in `# <figure name="...">` / `# </figure>` markers, so the report can show it.
 
 ## Running
