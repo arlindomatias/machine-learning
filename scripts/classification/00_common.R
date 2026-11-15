@@ -108,3 +108,62 @@ balanced_weights <- function(y) {
   n <- table(y)
   as.numeric(length(y) / (length(n) * n[as.character(y)]))
 }
+
+# --- Performance metrics ------------------------------------------------------------
+# Shared by 04_classification.R (per model) and 05_compare_models.R (bootstrap, pairwise tests).
+# `actual` and `predicted` are factors or characters with class names; `prob_pos` is the score for
+# the positive class (higher = more positive).
+
+# AUC = probability that a random positive scores higher than a random negative (ties count 1/2).
+auc_score <- function(score, is_pos) {
+  n_pos <- sum(is_pos); n_neg <- sum(!is_pos)
+  if (n_pos == 0 || n_neg == 0) return(NA_real_)
+  r <- rank(score)
+  (sum(r[is_pos]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+}
+
+# Average precision (area under the precision-recall curve, step-wise; tied scores form one step).
+average_precision <- function(score, is_pos) {
+  if (!any(is_pos)) return(NA_real_)
+  o <- order(score, decreasing = TRUE)
+  s <- score[o]
+  tp <- cumsum(is_pos[o])
+  n_called <- seq_along(s)
+  last <- c(s[-1] != s[-length(s)], TRUE)          # last sample of each group of tied scores
+  tp <- tp[last]; n_called <- n_called[last]
+  sum(diff(c(0, tp / sum(is_pos))) * tp / n_called)
+}
+
+# Wilson score interval for a proportion x / n.
+wilson_ci <- function(x, n, level = 0.95) {
+  if (n == 0) return(c(NA_real_, NA_real_))
+  z <- qnorm(1 - (1 - level) / 2)
+  p <- x / n
+  centre <- (p + z^2 / (2 * n)) / (1 + z^2 / n)
+  half <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / (1 + z^2 / n)
+  c(max(0, centre - half), min(1, centre + half))
+}
+
+# One row of metrics. `eps` clips probabilities for the log loss (a hard 0/1 score that is wrong
+# would otherwise give an infinite loss).
+classification_metrics <- function(actual, predicted, prob_pos, eps = 1e-3) {
+  pos <- cfg$classes$positive
+  is_pos <- as.character(actual) == pos
+  called_pos <- as.character(predicted) == pos
+  tp <- sum(is_pos & called_pos); tn <- sum(!is_pos & !called_pos)
+  fp <- sum(!is_pos & called_pos); fn <- sum(is_pos & !called_pos)
+  sens <- tp / (tp + fn); spec <- tn / (tn + fp)
+  mcc_den <- sqrt(as.numeric(tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+  p <- pmin(pmax(prob_pos, eps), 1 - eps)
+  data.table(
+    accuracy = (tp + tn) / length(actual),
+    sensitivity = sens, specificity = spec, balanced_accuracy = (sens + spec) / 2,
+    ppv = if (tp + fp > 0) tp / (tp + fp) else NA_real_,
+    npv = if (tn + fn > 0) tn / (tn + fn) else NA_real_,
+    mcc = if (mcc_den > 0) (as.numeric(tp) * tn - as.numeric(fp) * fn) / mcc_den else 0,
+    auc = auc_score(prob_pos, is_pos),
+    pr_auc_negative = average_precision(-prob_pos, !is_pos),
+    brier = mean((prob_pos - is_pos)^2),
+    log_loss = -mean(ifelse(is_pos, log(p), log(1 - p)))
+  )
+}

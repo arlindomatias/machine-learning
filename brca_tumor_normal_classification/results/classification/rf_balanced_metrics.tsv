@@ -1,2 +1,2 @@
-model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
-rf_balanced	random_forest	100	849	363	0.988980716253444	0.987841945288754	1	0.993920972644377	0.998748435544431
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	ppv	npv	mcc	auc	pr_auc_negative	brier	log_loss	sensitivity_wilson_lower	sensitivity_wilson_upper	specificity_wilson_lower	specificity_wilson_upper
+rf_balanced	random_forest	100	849	363	0.988980716253444	0.987841945288754	1	0.993920972644377	1	0.894736842105263	0.940137533888941	0.998748435544431	0.98632354234001	0.00968223691460055	0.0436317146425331	0.969161036413341	0.995262089051107	0.898485445846676	1

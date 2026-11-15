@@ -66,7 +66,7 @@ everything shared by all models (data, gene selection, metrics, figures). If the
 | `split` | `02_split.R` | `data/train_test_split.csv`, `results/classification/bss_wss_ranking_train.tsv` |
 | `feature_selection` | `03_feature_selection.R` | `results/feature_selection/top_genes_full_cohort.tsv`, `plots/feature_selection/heatmap_top_genes.png` |
 | `classify`, `classify_with_genes` (one job per model) | `04_classification.R` + `models/<method>.R` | `results/classification/<model>_{predictions,metrics,confusion_matrix}.tsv`, `plots/classification/<model>_confusion_matrix.png`, `data/models/<model>.rds`; methods with per-gene weights also write `<model>_genes.{tsv,png}` |
-| `compare_models` | `05_compare_models.R` | `results/classification/model_comparison.tsv`, `plots/classification/{model_comparison,roc_curves}.png` |
+| `compare_models` | `05_compare_models.R` | `results/classification/{model_comparison,bootstrap_ci,pairwise_tests,misclassified_samples}.tsv`, `plots/classification/{model_comparison,roc_curves,calibration,misclassified_samples}.png` |
 | `clustering` (one job per method) | `06_clustering.R` | `results/clustering/<method>_{assignments,contingency}.tsv`, `plots/clustering/<method>_clusplot.png` |
 | `enrichment` | `07_enrichment.R` | `results/enrichment/reactome.tsv`, `plots/enrichment/reactome_{dotplot,emapplot}.png` |
 | `copy_number` | `08_copy_number.R` | `results/copy_number/per_sample.tsv`, `plots/copy_number/fraction_genome_altered.png` |
@@ -81,6 +81,13 @@ Logs are written to `logs/`.
 - **Train/test split.** 70/30 by patient, stratified by whether the patient has a normal sample.
   A patient's tumor and normal never fall on different sides.
 - **Training-set fitting only.** Gene selection (BSS/WSS) and kNN standardization are fit on the training set.
-- **Evaluation.** Sensitivity, specificity, balanced accuracy and AUC on the test set (tumor = positive).
-  These metrics are used because the classes are imbalanced (~10 tumors per normal).
+- **Evaluation.** On the test set (tumor = positive), settings under `evaluation:` in `config.yaml`:
+  - Classification: sensitivity, specificity, balanced accuracy, PPV, NPV and MCC. These are used because the classes
+    are imbalanced (~10 tumors per normal).
+  - Ranking: ROC AUC, plus PR AUC with the normal (rare) class as the class of interest.
+  - Probabilities: Brier score, log loss and calibration curves.
+  - Uncertainty: patient-level bootstrap intervals (the same resamples for every model) and Wilson intervals for
+    sensitivity and specificity.
+  - Model vs. model: exact McNemar and DeLong tests for every pair, Holm-adjusted.
+  - Error analysis: the test samples each model misclassifies.
 - **Descriptive steps.** The full-cohort ranking is used only by the heatmap, clustering and enrichment.

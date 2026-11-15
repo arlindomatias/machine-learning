@@ -1,2 +1,2 @@
-model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
-knn_k1	knn	100	849	363	0.997245179063361	0.996960486322189	1	0.998480243161094	0.998480243161094
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	ppv	npv	mcc	auc	pr_auc_negative	brier	log_loss	sensitivity_wilson_lower	sensitivity_wilson_upper	specificity_wilson_lower	specificity_wilson_upper
+knn_k1	knn	100	849	363	0.997245179063361	0.996960486322189	1	0.998480243161094	1	0.971428571428571	0.984111731968834	0.998480243161094	0.971428571428571	0.00275482093663912	0.0200273730020368	0.982986476390317	0.999463249550101	0.898485445846676	1

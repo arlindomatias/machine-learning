@@ -64,6 +64,9 @@ samples = pd.read_csv(inp.samples)
 split = pd.read_csv(inp.split)
 top = read_tsv(inp.top_genes)
 comparison = read_tsv(inp.comparison)
+boot = read_tsv(inp.bootstrap)
+pairwise = read_tsv(inp.pairwise)
+errors = read_tsv(inp.errors)
 reactome = read_tsv(inp.reactome)
 cn = read_tsv(inp.copy_number)
 confusion = by_stem(inp.confusion, "_confusion_matrix.tsv")
@@ -104,7 +107,7 @@ r.md("""
 2. **split**: patient-level, stratified train/test split; genes ranked by BSS/WSS on the training set only.
 3. **feature_selection**: descriptive BSS/WSS ranking on the full cohort and heatmap.
 4. **classify / classify_with_genes**: one job per model in `config.yaml`, with the method's code in `models/<method>.R`; outputs are named after the model id. Methods with per-gene weights also write a gene table.
-5. **compare_models**: metrics table, bar chart and ROC curves of all models.
+5. **compare_models**: metrics with patient bootstrap intervals, pairwise McNemar and DeLong tests, ROC and calibration curves, and misclassified samples.
 6. **clustering**: one job per method (k-means, PAM) on the top full-cohort genes.
 7. **enrichment**: Reactome over-representation of the top genes.
 8. **copy_number**: per-sample copy-number alteration burden.
@@ -137,11 +140,79 @@ normal never fall on different sides. Gene selection and standardization were fi
 r.table(sets, "Samples per set.")
 r.table(pd.DataFrame([{"model": m, "description": describe_model(c)} for m, c in models.items()]),
         "Models (`models:` in config.yaml).")
-show = comparison[["model", "n_features", "accuracy", "sensitivity", "specificity", "balanced_accuracy", "auc"]]
-r.table(show, f"Test-set performance ({POS} is the positive class).", digits=4)
-r.figure(f"{P}/classification/model_comparison.png", "Test-set metrics per model.")
+ev = cfg["evaluation"]
+level = f"{ev['ci_level']:.0%}"
+
+
+def with_ci(model, metric, digits=3):
+    row = boot[(boot["model"] == model) & (boot["metric"] == metric)].iloc[0]
+    return f"{row['estimate']:.{digits}f} [{row['lower']:.{digits}f}, {row['upper']:.{digits}f}]"
+
+
+r.h3("Performance")
+r.md(f"""
+All metrics are on the test set, with **{POS}** as the positive class.
+
+- **Sensitivity / specificity**: share of {POS} / {NEG} samples called correctly. **Balanced accuracy** is their mean.
+- **PPV / NPV**: share of {POS} / {NEG} calls that are correct. With few {NEG} samples, NPV is the more fragile of the two.
+- **MCC** (Matthews correlation): uses all four cells of the confusion matrix. It is 1 for a perfect classifier and 0 at chance, and it is not inflated by the class imbalance.
+- **ROC AUC**: ranking quality of the scores. **PR AUC ({NEG})** is the area under the precision-recall curve with {NEG}, the rare class, as the class of interest (chance level = its share of the test set, {(split.query("set == 'test'")["class"] == NEG).mean():.3f}).
+- **Brier score / log loss**: quality of the probabilities themselves (lower is better). Log loss clips probabilities to [{ev['log_loss_eps']}, {1 - ev['log_loss_eps']}].
+
+Intervals are {level} percentile intervals from {ev['bootstrap']:,} bootstrap resamples of test-set **patients** (a patient's
+tumor and normal stay together). Every model is evaluated on the same resamples. Sensitivity and specificity also have
+Wilson intervals in `model_comparison.tsv`.
+""")
+cols = ["model", "n_features", "sensitivity", "specificity", "balanced_accuracy", "ppv", "npv", "mcc",
+        "auc", "pr_auc_negative", "brier", "log_loss"]
+r.table(comparison[cols], f"Test-set performance ({POS} is the positive class).", digits=4)
+ci_metrics = {"balanced_accuracy": "balanced accuracy", "mcc": "MCC", "auc": "ROC AUC",
+              "npv": "NPV", "brier": "Brier score"}
+r.table(pd.DataFrame([{"model": m, **{label: with_ci(m, k) for k, label in ci_metrics.items()}} for m in models]),
+        f"Point estimate [{level} patient bootstrap interval].")
+r.figure(f"{P}/classification/model_comparison.png",
+         f"Test-set metrics per model with {level} patient bootstrap intervals.")
 r.figure(f"{P}/classification/roc_curves.png",
          "ROC curves on the test set (kNN scores are neighbour vote shares; k = 1 gives a single point).")
+
+r.h3("Pairwise comparisons")
+n_pairs = len(pairwise)
+sig_m = int((pairwise["mcnemar_p_holm"] < 0.05).sum())
+sig_d = int((pairwise["delong_p_holm"] < 0.05).sum())
+r.md(f"""
+Every pair of models is compared on the same test samples. The **exact McNemar test** asks whether one model's errors are
+systematically different from the other's, using only the samples where exactly one of the two is right. The
+**DeLong test** compares the two AUCs, accounting for their correlation. P-values are Holm-adjusted across the
+{n_pairs} pairs. **{sig_m}** pair(s) differ by McNemar and **{sig_d}** by DeLong after adjustment.
+""")
+top = pairwise.sort_values("mcnemar_p").head(15)[
+    ["model_a", "model_b", "errors_a", "errors_b", "only_a_correct", "only_b_correct", "mcnemar_p",
+     "mcnemar_p_holm", "auc_a", "auc_b", "delong_p", "delong_p_holm"]]
+r.table(top, "The 15 pairs with the smallest McNemar p-values (all pairs in `pairwise_tests.tsv`).",
+        digits=4, collapsed=True)
+
+r.h3("Calibration")
+r.md(f"""
+For each bin of predicted P({POS}) ({ev['calibration_bins']} equal-width bins), the observed share of {POS} samples.
+A well-calibrated model lies on the diagonal. Most predictions fall in the two extreme bins, so the middle bins
+hold only a few samples (point size). kNN with k = 1 gives only 0 or 1.
+""")
+r.figure(f"{P}/classification/calibration.png", "Calibration of the predicted probabilities on the test set.")
+
+r.h3("Misclassified samples")
+if len(errors):
+    always = errors[errors["n_models_wrong"] == len(models)]
+    r.md(f"""
+**{len(errors)}** test sample(s) are misclassified by at least one model and **{len(always)}** by every model.
+Samples that every model gets wrong may have a questionable label or composition (for example a tumor sample
+with a high share of normal tissue) rather than reveal a weakness of any one model.
+""")
+    r.table(errors[["barcode", "actual", "n_models_wrong", "models_wrong", "mean_prob_positive"]],
+            "Test samples misclassified by at least one model.", digits=3)
+    r.figure(f"{P}/classification/misclassified_samples.png",
+             "Predictions of every model for the misclassified samples (red = wrong).")
+else:
+    r.md("No test sample is misclassified by any model.")
 
 for m, mcfg in models.items():
     r.h3(m)
@@ -150,7 +221,8 @@ for m, mcfg in models.items():
     fp = int(cm.query("actual == @NEG and predicted == @POS")["N"].sum())
     fn = int(cm.query("actual == @POS and predicted == @NEG")["N"].sum())
     r.md(f"""
-{describe_model(mcfg)}. Balanced accuracy **{row['balanced_accuracy']:.3f}**, AUC **{row['auc']:.3f}**;
+{describe_model(mcfg)}. Balanced accuracy **{with_ci(m, 'balanced_accuracy')}**, MCC **{with_ci(m, 'mcc')}**,
+AUC **{row['auc']:.3f}**, Brier score **{row['brier']:.4f}**;
 {fn} {POS} sample(s) called {NEG} and {fp} {NEG} sample(s) called {POS}.
 """)
     r.figure(f"{P}/classification/{m}_confusion_matrix.png", f"Confusion matrix of `{m}` on the test set.",
@@ -219,7 +291,10 @@ outputs = [
     ("results/classification/bss_wss_ranking_train.tsv", "Gene ranking on the training set"),
     ("results/classification/<model>_{predictions,metrics,confusion_matrix}.tsv", "Per-model test-set outputs"),
     ("results/classification/<model>_genes.tsv", "Per-gene weights (methods that have them)"),
-    ("results/classification/model_comparison.tsv", "Metrics of every model"),
+    ("results/classification/model_comparison.tsv", "Metrics of every model (with Wilson intervals)"),
+    ("results/classification/bootstrap_ci.tsv", "Patient bootstrap intervals of every metric"),
+    ("results/classification/pairwise_tests.tsv", "McNemar and DeLong tests for every pair of models"),
+    ("results/classification/misclassified_samples.tsv", "Test samples misclassified by at least one model"),
     ("results/clustering/<method>_{assignments,contingency}.tsv", "Per-method clustering outputs"),
     ("results/enrichment/reactome.tsv", "Reactome enrichment"),
     ("results/copy_number/per_sample.tsv", "Per-sample copy-number summary"),

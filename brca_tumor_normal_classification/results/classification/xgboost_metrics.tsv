@@ -1,2 +1,2 @@
-model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
-xgboost	xgboost	100	849	363	0.991735537190083	0.990881458966565	1	0.995440729483283	0.998748435544431
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	ppv	npv	mcc	auc	pr_auc_negative	brier	log_loss	sensitivity_wilson_lower	sensitivity_wilson_upper	specificity_wilson_lower	specificity_wilson_upper
+xgboost	xgboost	100	849	363	0.991735537190083	0.990881458966565	1	0.995440729483283	1	0.918918918918919	0.954222049132358	0.998748435544431	0.985252273110173	0.00535946984824797	0.0307155566086688	0.973537870356845	0.996894121932926	0.898485445846676	1

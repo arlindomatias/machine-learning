@@ -90,6 +90,13 @@ models:
     prior: balanced
     n_features: 100
 
+# Model evaluation on the test set (04_classification.R per model, 05_compare_models.R across models).
+evaluation:
+  ci_level: 0.95
+  bootstrap: 2000           # resamples of test-set patients, shared by all models (paired)
+  log_loss_eps: 0.001       # probabilities are clipped to [eps, 1 - eps] for the log loss
+  calibration_bins: 10      # equal-width bins of the predicted probability
+
 # Unsupervised clustering of the top genes. One output set per method (kmeans | pam).
 clustering:
   methods: [kmeans, pam]

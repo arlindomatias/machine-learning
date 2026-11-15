@@ -1,2 +1,2 @@
-model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
-pamr	pamr	20228	849	363	0.986225895316804	0.984802431610942	1	0.992401215805471	0.999195422849991
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	ppv	npv	mcc	auc	pr_auc_negative	brier	log_loss	sensitivity_wilson_lower	sensitivity_wilson_upper	specificity_wilson_lower	specificity_wilson_upper
+pamr	pamr	20228	849	363	0.986225895316804	0.984802431610942	1	0.992401215805471	1	0.871794871794872	0.926577416954212	0.999195422849991	0.991401126388182	0.0214597797766477	0.113552614226559	0.96492276514621	0.993491493492914	0.898485445846676	1

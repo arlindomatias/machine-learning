@@ -53,25 +53,23 @@ stopifnot(length(pred) == nrow(X_test), !anyNA(pred), length(prob_pos) == nrow(X
 # --- Predictions and metrics -----------------------------------------------------
 predictions <- data.table(model = model_id, barcode = split$barcode[!train],
                           patient = split$patient[!train], actual = y_test,
-                          predicted = pred, prob_positive = round(prob_pos, 4))
+                          predicted = pred, prob_positive = prob_pos)  # full precision: rounding creates ties that change AUC
 write_tsv(predictions, out$predictions)
 
 cm <- table(predicted = pred, actual = y_test)
 write_tsv(as.data.table(cm)[, model := model_id][, .(model, actual, predicted, N)], out$confusion)
 
-# AUC = probability that a random positive scores higher than a random negative (ties count 1/2).
-auc <- function(score, truth) {
-  r <- rank(score)
-  n_pos <- sum(truth == pos); n_neg <- sum(truth == neg)
-  (sum(r[truth == pos]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
-}
-sens <- cm[pos, pos] / sum(cm[, pos])
-spec <- cm[neg, neg] / sum(cm[, neg])
-metrics <- data.table(
-  model = model_id, method = mcfg$method, n_features = length(genes),
-  n_train = nrow(X_train), n_test = nrow(X_test),
-  accuracy = sum(diag(cm)) / sum(cm), sensitivity = sens, specificity = spec,
-  balanced_accuracy = (sens + spec) / 2, auc = auc(prob_pos, y_test)
+# Metrics (classification_metrics() in 00_common.R) plus Wilson intervals for sensitivity and
+# specificity. Bootstrap intervals for every metric are computed in 05_compare_models.R.
+ev <- cfg$evaluation
+ci_s <- wilson_ci(cm[pos, pos], sum(cm[, pos]), ev$ci_level)
+ci_e <- wilson_ci(cm[neg, neg], sum(cm[, neg]), ev$ci_level)
+metrics <- cbind(
+  data.table(model = model_id, method = mcfg$method, n_features = length(genes),
+             n_train = nrow(X_train), n_test = nrow(X_test)),
+  classification_metrics(y_test, pred, prob_pos, eps = ev$log_loss_eps),
+  data.table(sensitivity_wilson_lower = ci_s[1], sensitivity_wilson_upper = ci_s[2],
+             specificity_wilson_lower = ci_e[1], specificity_wilson_upper = ci_e[2])
 )
 print(cm)
 print(metrics)

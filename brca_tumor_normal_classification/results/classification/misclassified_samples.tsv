@@ -1,0 +1,15 @@
+barcode	patient	actual	n_models_wrong	models_wrong	mean_prob_positive
+TCGA-AO-A1KO-01A-31R-A13Q-07	TCGA-AO-A1KO	Tumor	12	knn_k1, knn_k5, knn_k1_all_genes, rf, rf_balanced, lasso, elastic_net, svm_linear, svm_radial, pamr, xgboost, dlda	0.056
+TCGA-A2-A0ES-01A-11R-A115-07	TCGA-A2-A0ES	Tumor	5	knn_k5, knn_k1_all_genes, rf_balanced, xgboost, dlda	0.4895
+TCGA-BH-A28O-01A-11R-A22K-07	TCGA-BH-A28O	Tumor	5	rf, rf_balanced, pamr, xgboost, dlda	0.6607
+TCGA-BH-A0BW-11A-12R-A115-07	TCGA-BH-A0BW	Normal	4	knn_k5, rf, lasso, elastic_net	0.3434
+TCGA-AR-A2LN-01A-21R-A18M-07	TCGA-AR-A2LN	Tumor	2	rf_balanced, dlda	0.8021
+TCGA-LL-A440-01A-11R-A24H-07	TCGA-LL-A440	Tumor	2	pamr, dlda	0.7921
+TCGA-A1-A0SB-01A-11R-A144-07	TCGA-A1-A0SB	Tumor	1	knn_k1_all_genes	0.8131
+TCGA-A2-A0EW-01A-21R-A115-07	TCGA-A2-A0EW	Tumor	1	dlda	0.8473
+TCGA-AO-A12E-01A-11R-A10J-07	TCGA-AO-A12E	Tumor	1	pamr	0.9211
+TCGA-BH-A0BO-01A-23R-A12D-07	TCGA-BH-A0BO	Tumor	1	dlda	0.835
+TCGA-BH-A1EU-01A-11R-A137-07	TCGA-BH-A1EU	Tumor	1	dlda	0.8425
+TCGA-E2-A1BC-01A-11R-A12P-07	TCGA-E2-A1BC	Tumor	1	dlda	0.8626
+TCGA-E9-A1QZ-01A-21R-A169-07	TCGA-E9-A1QZ	Tumor	1	pamr	0.8612
+TCGA-Z7-A8R5-01A-42R-A41B-07	TCGA-Z7-A8R5	Tumor	1	knn_k1_all_genes	0.9029

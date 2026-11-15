@@ -1,2 +1,2 @@
-model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
-elastic_net	glmnet	20228	849	363	0.994490358126722	0.996960486322189	0.970588235294118	0.983774360808153	0.998927230466655
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	ppv	npv	mcc	auc	pr_auc_negative	brier	log_loss	sensitivity_wilson_lower	sensitivity_wilson_upper	specificity_wilson_lower	specificity_wilson_upper
+elastic_net	glmnet	20228	849	363	0.994490358126722	0.996960486322189	0.970588235294118	0.983774360808153	0.996960486322189	0.970588235294118	0.967548721616306	0.998927230466655	0.988299783286839	0.00489889306378213	0.0218137865005505	0.982986476390317	0.999463249550101	0.850844267073141	0.994789093723731

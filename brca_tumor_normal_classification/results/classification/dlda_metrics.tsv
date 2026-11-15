@@ -1,2 +1,2 @@
-model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	auc
-dlda	dlda	100	849	363	0.975206611570248	0.972644376899696	1	0.986322188449848	0.998837833005543
+model	method	n_features	n_train	n_test	accuracy	sensitivity	specificity	balanced_accuracy	ppv	npv	mcc	auc	pr_auc_negative	brier	log_loss	sensitivity_wilson_lower	sensitivity_wilson_upper	specificity_wilson_lower	specificity_wilson_upper
+dlda	dlda	100	849	363	0.975206611570248	0.972644376899696	1	0.986322188449848	1	0.790697674418605	0.876965020312055	0.998837833005543	0.990136395467278	0.0236832824688221	0.157293684892301	0.948836128276692	0.985542663061137	0.898485445846676	1
